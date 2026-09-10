@@ -1,5 +1,9 @@
 [workspace]
-members = ["crates/quadbench-core", "crates/quadbench-app"]
+members = [
+    "crates/quadbench-app",
+    "crates/quadbench-core",
+    "crates/quadbench-input",
+]
 resolver = "3"
 
 [workspace.package]
@@ -8,6 +12,7 @@ edition = "2024"
 
 [workspace.dependencies]
 eframe = "0.36.1"
+gilrs = "0.11.2"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

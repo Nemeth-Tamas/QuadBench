@@ -10,16 +10,16 @@ Real Betaflight should remain the flight-controller software wherever possible. 
 
 ## Phase 0 — Project Foundation
 
-* [ ] Create initial Rust workspace
-* [ ] Define workspace/crate structure
+* [x] Create initial Rust workspace
+* [x] Define workspace/crate structure
 * [ ] Add `README.md`
-* [ ] Add `.gitignore`
+* [x] Add `.gitignore`
 * [ ] Add Rust formatting configuration if required
-* [ ] Establish logging with `tracing`
+* [x] Establish logging with `tracing`
 * [ ] Establish error handling conventions
 * [ ] Establish application configuration format
-* [ ] Add debug/release build profiles
-* [ ] Confirm clean build on Windows
+* [x] Add debug/release build profiles
+* [x] Confirm clean build on Windows
 * [ ] Confirm clean build on Linux
 * [ ] Add basic CI build checks
 
@@ -44,24 +44,24 @@ QuadBench/
 
 ## Phase 1 — Application Skeleton
 
-* [ ] Create `quadbench-app`
-* [ ] Add `eframe` / `egui`
-* [ ] Create main application window
-* [ ] Add top-level tabs/pages
+* [x] Create `quadbench-app`
+* [x] Add `eframe` / `egui`
+* [x] Create main application window
+* [x] Add top-level tabs/pages
 
-  * [ ] Dashboard
-  * [ ] Receiver
-  * [ ] Motors / ESC
-  * [ ] Battery
-  * [ ] GPS
-  * [ ] Sensors
-  * [ ] Fault Injection
-  * [ ] Betaflight
-  * [ ] Logs
-  * [ ] Settings
-* [ ] Add application status bar
-* [ ] Add connection-state indicators
-* [ ] Add start/stop simulation controls
+  * [x] Dashboard
+  * [x] Receiver
+  * [x] Motors / ESC
+  * [x] Battery
+  * [x] GPS
+  * [x] Sensors
+  * [x] Fault Injection
+  * [x] Betaflight
+  * [x] Logs
+  * [x] Settings
+* [x] Add application status bar
+* [x] Add connection-state indicators
+* [x] Add start/stop simulation controls
 * [ ] Add configurable simulation update rate
 * [ ] Add persistent settings
 

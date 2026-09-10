@@ -1,5 +1,6 @@
 pub mod dashboard;
 pub mod navigation;
+pub mod receiver;
 pub mod status_bar;
 pub mod top_bar;
 
