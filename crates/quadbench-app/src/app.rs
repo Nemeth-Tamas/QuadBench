@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use eframe::egui;
 use quadbench_core::state::{LinkState, QuadState};
-use quadbench_input::{ControllerDevice, ControllerInput, ControllerSnapshot};
+use quadbench_input::{ControllerDevice, ControllerInput, ControllerSnapshot, PocketSnapshot};
 use tracing::error;
 
 use crate::ui::{self, UiPage};
@@ -13,6 +13,7 @@ pub struct QuadBenchApp {
     controller_input: Option<ControllerInput>,
     controller_devices: Vec<ControllerDevice>,
     controller_snapshot: Option<ControllerSnapshot>,
+    pocket_snapshot: Option<PocketSnapshot>,
     controller_error: Option<String>,
 }
 
@@ -36,6 +37,7 @@ impl QuadBenchApp {
             controller_input,
             controller_devices: Vec::new(),
             controller_snapshot: None,
+            pocket_snapshot: None,
             controller_error,
         };
 
@@ -50,6 +52,8 @@ impl QuadBenchApp {
 
             self.controller_devices.clear();
             self.controller_snapshot = None;
+            self.pocket_snapshot = None;
+            self.state.receiver.connected = false;
 
             return;
         };
@@ -59,6 +63,18 @@ impl QuadBenchApp {
         self.controller_devices = input.devices();
 
         self.controller_snapshot = input.snapshot();
+
+        self.pocket_snapshot = self
+            .controller_snapshot
+            .as_ref()
+            .and_then(PocketSnapshot::from_controller);
+
+        if let Some(pocket) = self.pocket_snapshot.as_ref() {
+            self.state.receiver.connected = true;
+            self.state.receiver.channels_us = pocket.channels_us;
+        } else {
+            self.state.receiver.connected = false;
+        }
 
         self.state.system.controller_link = if self.controller_snapshot.is_some() {
             LinkState::Connected
@@ -94,6 +110,7 @@ impl eframe::App for QuadBenchApp {
                             &self.state,
                             &self.controller_devices,
                             self.controller_snapshot.as_ref(),
+                            self.pocket_snapshot.as_ref(),
                             self.controller_error.as_deref(),
                         );
                     }

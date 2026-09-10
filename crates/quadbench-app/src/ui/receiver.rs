@@ -1,12 +1,13 @@
 use eframe::egui;
 use quadbench_core::state::QuadState;
-use quadbench_input::{ControllerDevice, ControllerSnapshot};
+use quadbench_input::{ControllerDevice, ControllerSnapshot, PocketSnapshot};
 
 pub fn show(
     ui: &mut egui::Ui,
     state: &QuadState,
     devices: &[ControllerDevice],
     snapshot: Option<&ControllerSnapshot>,
+    pocket: Option<&PocketSnapshot>,
     input_error: Option<&str>,
 ) {
     ui.heading("Receiver");
@@ -40,6 +41,14 @@ pub fn show(
     });
 
     ui.add_space(12.0);
+
+    show_pocket_mapping(ui, pocket);
+
+    ui.add_space(14.0);
+
+    show_channel_monitor(ui, state);
+
+    ui.add_space(14.0);
 
     ui.heading(format!("Detected USB controllers ({})", devices.len(),));
 
@@ -188,6 +197,113 @@ pub fn show(
                     ui.end_row();
                 }
             });
+    }
+}
+
+fn show_pocket_mapping(ui: &mut egui::Ui, pocket: Option<&PocketSnapshot>) {
+    ui.heading("RadioMaster Pocket");
+
+    let Some(pocket) = pocket else {
+        ui.label(
+            "Pocket profile could not map the \
+             required primary controls.",
+        );
+
+        return;
+    };
+
+    ui.label(
+        "Physical Pocket controls translated \
+         from the currently discovered Windows \
+         controller mapping.",
+    );
+
+    ui.add_space(6.0);
+
+    egui::Grid::new("pocket_mapping_grid")
+        .num_columns(5)
+        .spacing([12.0, 6.0])
+        .striped(true)
+        .show(ui, |ui| {
+            ui.strong("Physical");
+            ui.strong("Windows / gilrs");
+            ui.strong("Channel");
+            ui.strong("Normalized");
+            ui.strong("Output");
+            ui.end_row();
+
+            for control in &pocket.controls {
+                ui.label(control.name);
+                ui.label(control.source);
+
+                ui.label(format!("CH{}", control.channel,));
+
+                ui.label(format!("{:+.4}", control.normalized,));
+
+                ui.label(format!("{} µs", control.pulse_us,));
+
+                ui.end_row();
+            }
+        });
+}
+
+fn show_channel_monitor(ui: &mut egui::Ui, state: &QuadState) {
+    ui.heading("Receiver channels");
+
+    ui.label(
+        "AETR on CH1–CH4. SD is AUX1 so \
+         it can become the Betaflight ARM \
+         switch later.",
+    );
+
+    ui.add_space(6.0);
+
+    egui::Grid::new("receiver_channel_grid")
+        .num_columns(4)
+        .spacing([12.0, 6.0])
+        .striped(true)
+        .show(ui, |ui| {
+            ui.strong("Channel");
+            ui.strong("Function");
+            ui.strong("Value");
+            ui.strong("Position");
+            ui.end_row();
+
+            for (index, value) in state.receiver.channels_us.iter().enumerate() {
+                ui.label(format!("CH{}", index + 1,));
+
+                ui.label(channel_name(index));
+
+                ui.label(format!("{value} µs",));
+
+                let normalized = (f32::from(*value) - 988.0) / 1_024.0;
+
+                ui.add(egui::ProgressBar::new(normalized.clamp(0.0, 1.0)).desired_width(240.0));
+
+                ui.end_row();
+            }
+        });
+}
+
+fn channel_name(index: usize) -> &'static str {
+    match index {
+        0 => "Roll",
+        1 => "Pitch",
+        2 => "Throttle",
+        3 => "Yaw",
+        4 => "AUX1 / SD Arm",
+        5 => "AUX2 / SA",
+        6 => "AUX3 / SB",
+        7 => "AUX4 / SC",
+        8 => "AUX5 / SE",
+        9 => "AUX6",
+        10 => "AUX7",
+        11 => "AUX8",
+        12 => "AUX9",
+        13 => "AUX10",
+        14 => "AUX11",
+        15 => "AUX12",
+        _ => "Unknown",
     }
 }
 

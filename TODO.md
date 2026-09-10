@@ -138,12 +138,12 @@ Betaflight must be configurable through the normal Betaflight tooling rather tha
 
 ## Phase 4 — RadioMaster Pocket Input
 
-* [ ] Detect connected game controllers / HID devices
-* [ ] Detect RadioMaster Pocket when connected through USB
-* [ ] Display detected device information
-* [ ] Read Pocket stick channels
-* [ ] Read switches
-* [ ] Read buttons
+* [x] Detect connected game controllers / HID devices
+* [x] Detect RadioMaster Pocket when connected through USB
+* [x] Display detected device information
+* [x] Read Pocket stick channels
+* [x] Read switches
+* [x] Read buttons
 * [ ] Add channel monitor
 * [ ] Add channel calibration
 * [ ] Add deadband configuration

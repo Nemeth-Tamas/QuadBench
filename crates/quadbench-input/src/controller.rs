@@ -96,6 +96,26 @@ pub struct ControllerSnapshot {
     pub last_event: Option<String>,
 }
 
+impl ControllerSnapshot {
+    pub(crate) fn axis_value(&self, axis: Axis) -> Option<f32> {
+        let name = format!("{axis:?}");
+
+        self.axes
+            .iter()
+            .find(|snapshot| snapshot.name == name)
+            .map(|snapshot| snapshot.value)
+    }
+
+    pub(crate) fn button_value(&self, button: Button) -> Option<f32> {
+        let name = format!("{button:?}");
+
+        self.buttons
+            .iter()
+            .find(|snapshot| snapshot.name == name)
+            .map(|snapshot| snapshot.value)
+    }
+}
+
 pub struct ControllerInput {
     gilrs: Gilrs,
     selected_id: Option<usize>,
