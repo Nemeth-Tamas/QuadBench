@@ -8,6 +8,8 @@ const CHANNEL_MIN_US: f32 = 988.0;
 const CHANNEL_MID_US: f32 = 1_500.0;
 const CHANNEL_RANGE_US: f32 = 512.0;
 
+const YAW_DEADBAND: f32 = 0.06;
+
 #[derive(Debug, Clone)]
 pub struct PocketControlSnapshot {
     pub name: &'static str,
@@ -31,17 +33,28 @@ impl PocketSnapshot {
 
         let throttle = snapshot.axis_value(Axis::RightStickX)?;
 
-        let yaw = button_bipolar(snapshot.button_value(Button::LeftTrigger2)?);
+        let yaw = centered_trigger_axis(mapped_button_value(
+            snapshot,
+            Button::LeftTrigger2,
+            "LeftTrigger2",
+        )?);
 
-        let arm = button_bipolar(snapshot.button_value(Button::RightTrigger2).unwrap_or(0.0));
+        let arm = switch_position(
+            mapped_button_value(snapshot, Button::RightTrigger2, "RightTrigger2").unwrap_or(0.0),
+        );
 
-        let sa = button_bipolar(snapshot.button_value(Button::RightTrigger).unwrap_or(0.0));
+        let sa = switch_position(
+            mapped_button_value(snapshot, Button::RightTrigger, "RightTrigger").unwrap_or(0.0),
+        );
 
-        let sb = snapshot.axis_value(Axis::RightStickY).unwrap_or(-1.0);
+        let sb = snap_three_position(snapshot.axis_value(Axis::RightStickY).unwrap_or(-1.0));
 
-        let sc = button_bipolar(snapshot.button_value(Button::LeftTrigger).unwrap_or(0.0));
+        let sc = switch_position(
+            mapped_button_value(snapshot, Button::LeftTrigger, "LeftTrigger").unwrap_or(0.0),
+        );
 
-        let se = button_bipolar(snapshot.button_value(Button::West).unwrap_or(0.0));
+        let se =
+            switch_position(mapped_button_value(snapshot, Button::West, "West").unwrap_or(0.0));
 
         let controls = vec![
             control("Roll", "Right stick L/R → LeftStickX", 1, roll),
@@ -68,6 +81,51 @@ impl PocketSnapshot {
     }
 }
 
+fn mapped_button_value(
+    snapshot: &ControllerSnapshot,
+    button: Button,
+    logical_name: &str,
+) -> Option<f32> {
+    snapshot
+        .raw_logical_value(logical_name)
+        .or_else(|| snapshot.button_value(button))
+}
+
+fn centered_trigger_axis(value: f32) -> f32 {
+    apply_center_deadband(trigger_to_bipolar(value), YAW_DEADBAND)
+}
+
+fn switch_position(value: f32) -> f32 {
+    snap_three_position(trigger_to_bipolar(value))
+}
+
+fn trigger_to_bipolar(value: f32) -> f32 {
+    (value.clamp(0.0, 1.0) * 2.0) - 1.0
+}
+
+fn snap_three_position(value: f32) -> f32 {
+    let value = value.clamp(-1.0, 1.0);
+
+    if value < -0.5 {
+        -1.0
+    } else if value > 0.5 {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+fn apply_center_deadband(value: f32, deadband: f32) -> f32 {
+    let value = value.clamp(-1.0, 1.0);
+    let magnitude = value.abs();
+
+    if magnitude <= deadband {
+        return 0.0;
+    }
+
+    value.signum() * ((magnitude - deadband) / (1.0 - deadband)).clamp(0.0, 1.0)
+}
+
 fn control(
     name: &'static str,
     source: &'static str,
@@ -81,10 +139,6 @@ fn control(
         normalized,
         pulse_us: normalized_to_us(normalized),
     }
-}
-
-fn button_bipolar(value: f32) -> f32 {
-    (value.clamp(0.0, 1.0) * 2.0) - 1.0
 }
 
 fn normalized_to_us(value: f32) -> u16 {

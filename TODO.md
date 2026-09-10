@@ -144,7 +144,7 @@ Betaflight must be configurable through the normal Betaflight tooling rather tha
 * [x] Read Pocket stick channels
 * [x] Read switches
 * [x] Read buttons
-* [ ] Add channel monitor
+* [x] Add channel monitor
 * [ ] Add channel calibration
 * [ ] Add deadband configuration
 * [ ] Add channel inversion

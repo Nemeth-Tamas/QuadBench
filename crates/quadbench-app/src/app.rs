@@ -92,33 +92,39 @@ impl eframe::App for QuadBenchApp {
 
         ui.separator();
 
+        let content_height = (ui.available_height() - 36.0).max(120.0);
+
         ui.horizontal(|ui| {
             ui::navigation::show(ui, &mut self.selected_page);
 
             ui.separator();
 
-            ui.vertical(|ui| {
-                ui.set_min_width(700.0);
+            egui::ScrollArea::vertical()
+                .id_salt("main_content_scroll")
+                .max_height(content_height)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.set_min_width(700.0);
 
-                match self.selected_page {
-                    UiPage::Dashboard => {
-                        ui::dashboard::show(ui, &self.state);
+                    match self.selected_page {
+                        UiPage::Dashboard => {
+                            ui::dashboard::show(ui, &self.state);
+                        }
+                        UiPage::Receiver => {
+                            ui::receiver::show(
+                                ui,
+                                &self.state,
+                                &self.controller_devices,
+                                self.controller_snapshot.as_ref(),
+                                self.pocket_snapshot.as_ref(),
+                                self.controller_error.as_deref(),
+                            );
+                        }
+                        page => {
+                            ui::show_placeholder(ui, page);
+                        }
                     }
-                    UiPage::Receiver => {
-                        ui::receiver::show(
-                            ui,
-                            &self.state,
-                            &self.controller_devices,
-                            self.controller_snapshot.as_ref(),
-                            self.pocket_snapshot.as_ref(),
-                            self.controller_error.as_deref(),
-                        );
-                    }
-                    page => {
-                        ui::show_placeholder(ui, page);
-                    }
-                }
-            });
+                });
         });
 
         ui.separator();

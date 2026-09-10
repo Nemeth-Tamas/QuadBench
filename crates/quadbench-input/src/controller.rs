@@ -114,6 +114,20 @@ impl ControllerSnapshot {
             .find(|snapshot| snapshot.name == name)
             .map(|snapshot| snapshot.value)
     }
+
+    pub(crate) fn raw_logical_value(&self, logical_name: &str) -> Option<f32> {
+        self.raw_controls
+            .iter()
+            .find(|snapshot| {
+                snapshot.logical_name == logical_name && snapshot.kind == "Analog button"
+            })
+            .or_else(|| {
+                self.raw_controls
+                    .iter()
+                    .find(|snapshot| snapshot.logical_name == logical_name)
+            })
+            .map(|snapshot| snapshot.value)
+    }
 }
 
 pub struct ControllerInput {
@@ -202,14 +216,14 @@ impl ControllerInput {
                     );
                 }
                 EventType::ButtonChanged(button, value, code) => {
-                    self.update_raw_button(device_id, button, value, code);
+                    self.update_raw_analog_button(device_id, button, value, code);
                 }
                 EventType::ButtonPressed(button, code)
                 | EventType::ButtonRepeated(button, code) => {
-                    self.update_raw_button(device_id, button, 1.0, code);
+                    self.update_raw_digital_button(device_id, button, 1.0, code);
                 }
                 EventType::ButtonReleased(button, code) => {
-                    self.update_raw_button(device_id, button, 0.0, code);
+                    self.update_raw_digital_button(device_id, button, 0.0, code);
                 }
                 _ => {}
             }
@@ -299,7 +313,7 @@ impl ControllerInput {
         })
     }
 
-    fn update_raw_button(
+    fn update_raw_analog_button(
         &mut self,
         device_id: usize,
         button: Button,
@@ -312,8 +326,37 @@ impl ControllerInput {
             (device_id, control.clone()),
             RawControlSnapshot {
                 control,
+                kind: "Analog button".to_owned(),
+                logical_name: format!("{button:?}"),
+                value,
+            },
+        );
+    }
+
+    fn update_raw_digital_button(
+        &mut self,
+        device_id: usize,
+        button: Button,
+        value: f32,
+        code: gilrs::ev::Code,
+    ) {
+        let control = format!("{code:?}");
+        let key = (device_id, control.clone());
+
+        if self
+            .raw_controls
+            .get(&key)
+            .is_some_and(|snapshot| snapshot.kind == "Analog button")
+        {
+            return;
+        }
+
+        self.raw_controls.insert(
+            key,
+            RawControlSnapshot {
+                control,
                 kind: "Button".to_owned(),
-                logical_name: format!("{button:?}",),
+                logical_name: format!("{button:?}"),
                 value,
             },
         );
