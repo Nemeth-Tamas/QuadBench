@@ -1,7 +1,10 @@
 use std::time::Duration;
 
 use eframe::egui;
-use quadbench_betaflight::{SitlBridge, SitlConfig, SitlSnapshot};
+use quadbench_betaflight::{
+    ConfiguratorProxy, ConfiguratorProxyConfig, ConfiguratorProxySnapshot, SitlBridge, SitlConfig,
+    SitlSnapshot,
+};
 use quadbench_core::state::{LinkState, QuadState};
 use quadbench_input::{ControllerDevice, ControllerInput, ControllerSnapshot, PocketSnapshot};
 use tracing::error;
@@ -19,6 +22,9 @@ pub struct QuadBenchApp {
     sitl_bridge: Option<SitlBridge>,
     sitl_snapshot: Option<SitlSnapshot>,
     sitl_error: Option<String>,
+    configurator_proxy: Option<ConfiguratorProxy>,
+    configurator_proxy_snapshot: Option<ConfiguratorProxySnapshot>,
+    configurator_proxy_error: Option<String>,
 }
 
 impl QuadBenchApp {
@@ -35,7 +41,9 @@ impl QuadBenchApp {
             }
         };
 
-        let (sitl_bridge, sitl_error) = match SitlBridge::spawn(SitlConfig::default()) {
+        let sitl_config = SitlConfig::default();
+
+        let (sitl_bridge, sitl_error) = match SitlBridge::spawn(sitl_config) {
             Ok(bridge) => (Some(bridge), None),
             Err(error) => {
                 error!(
@@ -46,6 +54,24 @@ impl QuadBenchApp {
                 (None, Some(error.to_string()))
             }
         };
+
+        let proxy_config = ConfiguratorProxyConfig {
+            target_host: sitl_config.target_host,
+            ..ConfiguratorProxyConfig::default()
+        };
+
+        let (configurator_proxy, configurator_proxy_error) =
+            match ConfiguratorProxy::spawn(proxy_config) {
+                Ok(proxy) => (Some(proxy), None),
+                Err(error) => {
+                    error!(
+                        %error,
+                        "failed to initialize Configurator proxy"
+                    );
+
+                    (None, Some(error.to_string()))
+                }
+            };
 
         let mut app = Self {
             state: QuadState::default(),
@@ -58,10 +84,14 @@ impl QuadBenchApp {
             sitl_bridge,
             sitl_snapshot: None,
             sitl_error,
+            configurator_proxy,
+            configurator_proxy_snapshot: None,
+            configurator_proxy_error,
         };
 
         app.poll_controller();
         app.poll_sitl();
+        app.poll_configurator_proxy();
 
         app
     }
@@ -155,12 +185,20 @@ impl QuadBenchApp {
 
         self.sitl_snapshot = Some(snapshot);
     }
+
+    fn poll_configurator_proxy(&mut self) {
+        self.configurator_proxy_snapshot = self
+            .configurator_proxy
+            .as_ref()
+            .map(ConfiguratorProxy::snapshot);
+    }
 }
 
 impl eframe::App for QuadBenchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.poll_controller();
         self.poll_sitl();
+        self.poll_configurator_proxy();
 
         ui::shell::show(
             ui,
@@ -172,6 +210,8 @@ impl eframe::App for QuadBenchApp {
             self.controller_error.as_deref(),
             self.sitl_snapshot.as_ref(),
             self.sitl_error.as_deref(),
+            self.configurator_proxy_snapshot.as_ref(),
+            self.configurator_proxy_error.as_deref(),
         );
 
         ui.ctx().request_repaint_after(Duration::from_millis(16));

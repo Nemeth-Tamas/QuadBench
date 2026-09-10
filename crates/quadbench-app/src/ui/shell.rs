@@ -1,10 +1,11 @@
 use eframe::egui;
-use quadbench_betaflight::SitlSnapshot;
+use quadbench_betaflight::{ConfiguratorProxySnapshot, SitlSnapshot};
 use quadbench_core::state::QuadState;
 use quadbench_input::{ControllerDevice, ControllerSnapshot, PocketSnapshot};
 
 use super::UiPage;
 
+#[allow(clippy::too_many_arguments)]
 pub fn show(
     ui: &mut egui::Ui,
     state: &mut QuadState,
@@ -15,6 +16,8 @@ pub fn show(
     controller_error: Option<&str>,
     sitl_snapshot: Option<&SitlSnapshot>,
     sitl_error: Option<&str>,
+    configurator_proxy_snapshot: Option<&ConfiguratorProxySnapshot>,
+    configurator_proxy_error: Option<&str>,
 ) {
     super::top_bar::show(ui, state);
 
@@ -62,6 +65,8 @@ pub fn show(
                                 controller_error,
                                 sitl_snapshot,
                                 sitl_error,
+                                configurator_proxy_snapshot,
+                                configurator_proxy_error,
                             );
                         });
                 },
@@ -85,6 +90,8 @@ fn show_page(
     controller_error: Option<&str>,
     sitl_snapshot: Option<&SitlSnapshot>,
     sitl_error: Option<&str>,
+    configurator_proxy_snapshot: Option<&ConfiguratorProxySnapshot>,
+    configurator_proxy_error: Option<&str>,
 ) {
     match selected_page {
         UiPage::Dashboard => {
@@ -104,7 +111,14 @@ fn show_page(
             super::motors::show(ui, state);
         }
         UiPage::Betaflight => {
-            super::betaflight::show(ui, state, sitl_snapshot, sitl_error);
+            super::betaflight::show(
+                ui,
+                state,
+                sitl_snapshot,
+                sitl_error,
+                configurator_proxy_snapshot,
+                configurator_proxy_error,
+            );
         }
         page => {
             super::show_placeholder(ui, page);
