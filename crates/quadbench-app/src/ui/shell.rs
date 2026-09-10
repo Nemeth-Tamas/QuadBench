@@ -3,7 +3,7 @@ use quadbench_betaflight::SitlSnapshot;
 use quadbench_core::state::QuadState;
 use quadbench_input::{ControllerDevice, ControllerSnapshot, PocketSnapshot};
 
-use super::{self, UiPage};
+use super::UiPage;
 
 pub fn show(
     ui: &mut egui::Ui,
