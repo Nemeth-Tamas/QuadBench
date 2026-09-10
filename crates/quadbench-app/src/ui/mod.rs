@@ -1,6 +1,9 @@
+pub mod betaflight;
 pub mod dashboard;
+pub mod motors;
 pub mod navigation;
 pub mod receiver;
+pub mod shell;
 pub mod status_bar;
 pub mod top_bar;
 

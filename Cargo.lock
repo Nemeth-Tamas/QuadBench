@@ -2592,10 +2592,18 @@ name = "quadbench-app"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "quadbench-betaflight",
  "quadbench-core",
  "quadbench-input",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "quadbench-betaflight"
+version = "0.1.0"
+dependencies = [
+ "tracing",
 ]
 
 [[package]]

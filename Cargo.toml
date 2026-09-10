@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/quadbench-app",
+    "crates/quadbench-betaflight",
     "crates/quadbench-core",
     "crates/quadbench-input",
 ]

@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 eframe.workspace = true
+quadbench-betaflight = { path = "../quadbench-betaflight" }
 quadbench-core = { path = "../quadbench-core" }
 quadbench-input = { path = "../quadbench-input" }
 tracing.workspace = true
