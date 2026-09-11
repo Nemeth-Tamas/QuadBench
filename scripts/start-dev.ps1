@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) {
 $wslIp = ($wslIpRaw.Trim() -split "\s+")[0]
 
 $windowsHost = (
-    wsl.exe sh -lc "ip route show default | awk '{print `$3}'"
+    wsl.exe -e bash -lc "ip route show default | sed -n 's/^default via \([^ ]*\).*/\1/p' | head -n 1"
 ).Trim()
 
 if (-not $wslIp) {
@@ -65,22 +65,38 @@ $env:QUADBENCH_SITL_HOST = $wslIp
 Write-Host "QUADBENCH_SITL_HOST=$env:QUADBENCH_SITL_HOST"
 Write-Host ""
 
-$sitlCommand = @"
-cd $BetaflightDir &&
-exec ./obj/main/betaflight_SITL.elf --ip '$windowsHost'
-"@
+$resolvedBetaflightDir = (
+    wsl.exe -e bash -lc "cd $BetaflightDir && pwd"
+).Trim()
 
+if ($LASTEXITCODE -ne 0 -or -not $resolvedBetaflightDir) {
+    throw "Could not resolve Betaflight directory in WSL: $BetaflightDir"
+}
+
+$sitlCommand =
+    "cd '$resolvedBetaflightDir' && exec ./obj/main/betaflight_SITL.elf --ip '$windowsHost'"
+
+Write-Host "Betaflight:  $resolvedBetaflightDir"
+Write-Host ""
 Write-Host "Starting Betaflight SITL..."
 
-$sitlProcess = Start-Process `
-    -FilePath "wsl.exe" `
-    -ArgumentList @(
-        "sh",
-        "-lc",
-        $sitlCommand
-    ) `
-    -NoNewWindow `
-    -PassThru
+$startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+
+$startInfo.FileName = "wsl.exe"
+$startInfo.UseShellExecute = $false
+
+$startInfo.ArgumentList.Add("-e")
+$startInfo.ArgumentList.Add("bash")
+$startInfo.ArgumentList.Add("-lc")
+$startInfo.ArgumentList.Add($sitlCommand)
+
+$sitlProcess = [System.Diagnostics.Process]::Start(
+    $startInfo
+)
+
+if ($null -eq $sitlProcess) {
+    throw "Failed to start Betaflight SITL process."
+}
 
 try {
     Write-Host "Waiting for SITL UART1 on ${wslIp}:5761..."
