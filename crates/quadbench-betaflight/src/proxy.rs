@@ -10,7 +10,10 @@ use std::{
 };
 
 use tracing::{debug, info, warn};
-use tungstenite::{Error as WebSocketError, Message, accept};
+use tungstenite::{
+    Error as WebSocketError, Message, accept_hdr,
+    handshake::server::{Request, Response},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConfiguratorProxyConfig {
@@ -52,6 +55,10 @@ pub struct ConfiguratorProxySnapshot {
     pub client_connected: bool,
     pub sitl_connected: bool,
     pub sessions: u64,
+    pub handshake_attempts: u64,
+    pub successful_handshakes: u64,
+    pub last_requested_protocol: Option<String>,
+    pub negotiated_protocol: Option<String>,
     pub bytes_from_configurator: u64,
     pub bytes_from_sitl: u64,
     pub last_error: Option<String>,
@@ -71,6 +78,10 @@ struct ProxyTelemetry {
     client_connected: bool,
     sitl_connected: bool,
     sessions: u64,
+    handshake_attempts: u64,
+    successful_handshakes: u64,
+    last_requested_protocol: Option<String>,
+    negotiated_protocol: Option<String>,
     bytes_from_configurator: u64,
     bytes_from_sitl: u64,
     last_error: Option<String>,
@@ -93,6 +104,10 @@ impl ConfiguratorProxy {
             client_connected: false,
             sitl_connected: false,
             sessions: 0,
+            handshake_attempts: 0,
+            successful_handshakes: 0,
+            last_requested_protocol: None,
+            negotiated_protocol: None,
             bytes_from_configurator: 0,
             bytes_from_sitl: 0,
             last_error: None,
@@ -135,6 +150,10 @@ impl ConfiguratorProxy {
             client_connected: telemetry.client_connected,
             sitl_connected: telemetry.sitl_connected,
             sessions: telemetry.sessions,
+            handshake_attempts: telemetry.handshake_attempts,
+            successful_handshakes: telemetry.successful_handshakes,
+            last_requested_protocol: telemetry.last_requested_protocol.clone(),
+            negotiated_protocol: telemetry.negotiated_protocol.clone(),
             bytes_from_configurator: telemetry.bytes_from_configurator,
             bytes_from_sitl: telemetry.bytes_from_sitl,
             last_error: telemetry.last_error.clone(),
@@ -205,8 +224,61 @@ fn handle_client(
         .set_write_timeout(Some(Duration::from_secs(2)))
         .map_err(|error| format!("failed to configure WebSocket write timeout: {error}"))?;
 
-    let mut websocket =
-        accept(client_stream).map_err(|error| format!("WebSocket handshake failed: {error}"))?;
+    {
+        let mut telemetry = telemetry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        telemetry.handshake_attempts += 1;
+    }
+
+    let handshake_telemetry = Arc::clone(telemetry);
+
+    let callback = move |request: &Request, mut response: Response| {
+        let requested_protocol = request
+            .headers()
+            .get("Sec-WebSocket-Protocol")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
+
+        let binary_requested = requests_binary_subprotocol(requested_protocol.as_deref());
+
+        {
+            let mut telemetry = handshake_telemetry
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+            telemetry.last_requested_protocol = requested_protocol;
+
+            telemetry.negotiated_protocol = if binary_requested {
+                Some("binary".to_owned())
+            } else {
+                None
+            };
+        }
+
+        if binary_requested {
+            response.headers_mut().append(
+                "Sec-WebSocket-Protocol",
+                "binary"
+                    .parse()
+                    .expect("binary is a valid WebSocket subprotocol header"),
+            );
+        }
+
+        Ok(response)
+    };
+
+    let mut websocket = accept_hdr(client_stream, callback)
+        .map_err(|error| format!("WebSocket handshake failed: {error}"))?;
+
+    {
+        let mut telemetry = telemetry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        telemetry.successful_handshakes += 1;
+    }
 
     websocket
         .get_mut()
@@ -357,4 +429,31 @@ fn record_error(telemetry: &Arc<Mutex<ProxyTelemetry>>, message: String) {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     telemetry.last_error = Some(message);
+}
+
+fn requests_binary_subprotocol(value: Option<&str>) -> bool {
+    value.is_some_and(|value| {
+        value
+            .split(',')
+            .any(|protocol| protocol.trim().eq_ignore_ascii_case("binary"))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::requests_binary_subprotocol;
+
+    #[test]
+    fn detects_binary_subprotocol() {
+        assert!(requests_binary_subprotocol(Some("binary")));
+        assert!(requests_binary_subprotocol(Some("foo, binary")));
+        assert!(requests_binary_subprotocol(Some("Binary")));
+    }
+
+    #[test]
+    fn rejects_missing_binary_subprotocol() {
+        assert!(!requests_binary_subprotocol(None));
+        assert!(!requests_binary_subprotocol(Some("")));
+        assert!(!requests_binary_subprotocol(Some("wsSerial")));
+    }
 }

@@ -124,6 +124,24 @@ fn show_configurator_proxy(
         ui.label(format!("Sessions: {}", snapshot.sessions,));
 
         ui.label(format!(
+            "WebSocket handshakes: {} / {} successful",
+            snapshot.successful_handshakes, snapshot.handshake_attempts,
+        ));
+
+        ui.label(format!(
+            "Requested protocol: {}",
+            snapshot
+                .last_requested_protocol
+                .as_deref()
+                .unwrap_or("none"),
+        ));
+
+        ui.label(format!(
+            "Negotiated protocol: {}",
+            snapshot.negotiated_protocol.as_deref().unwrap_or("none"),
+        ));
+
+        ui.label(format!(
             "Configurator → SITL: {} bytes",
             snapshot.bytes_from_configurator,
         ));
