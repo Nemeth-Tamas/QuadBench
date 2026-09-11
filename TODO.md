@@ -110,14 +110,14 @@ fault status
 * [ ] Document supported Betaflight SITL version
 * [ ] Build or obtain Betaflight SITL locally
 * [ ] Start Betaflight SITL manually
-* [ ] Connect QuadBench to Betaflight SITL
-* [ ] Implement SITL transport abstraction
-* [ ] Receive Betaflight motor outputs
-* [ ] Send simulated vehicle/sensor state
+* [x] Connect QuadBench to Betaflight SITL
+* [x] Implement SITL transport abstraction
+* [x] Receive Betaflight motor outputs
+* [x] Send simulated vehicle/sensor state
 * [ ] Send basic RC channel input
-* [ ] Detect SITL disconnect
-* [ ] Support reconnect without restarting QuadBench
-* [ ] Show SITL connection state in GUI
+* [x] Detect SITL disconnect
+* [x] Support reconnect without restarting QuadBench
+* [x] Show SITL connection state in GUI
 * [ ] Log raw SITL packet activity in debug mode
 * [ ] Validate motor ordering against Betaflight
 * [ ] Validate channel ordering against Betaflight

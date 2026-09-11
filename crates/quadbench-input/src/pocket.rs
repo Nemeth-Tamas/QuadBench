@@ -26,18 +26,16 @@ pub struct PocketSnapshot {
 }
 
 impl PocketSnapshot {
-    pub fn from_controller(snapshot: &ControllerSnapshot) -> Option<Self> {
-        let roll = snapshot.axis_value(Axis::LeftStickX)?;
+    pub fn from_controller(snapshot: &ControllerSnapshot) -> Self {
+        let roll = snapshot.axis_value(Axis::LeftStickX).unwrap_or(0.0);
 
-        let pitch = snapshot.axis_value(Axis::LeftStickY)?;
+        let pitch = snapshot.axis_value(Axis::LeftStickY).unwrap_or(0.0);
 
-        let throttle = snapshot.axis_value(Axis::RightStickX)?;
+        let throttle = snapshot.axis_value(Axis::RightStickX).unwrap_or(-1.0);
 
-        let yaw = centered_trigger_axis(mapped_button_value(
-            snapshot,
-            Button::LeftTrigger2,
-            "LeftTrigger2",
-        )?);
+        let yaw = centered_trigger_axis(
+            mapped_button_value(snapshot, Button::LeftTrigger2, "LeftTrigger2").unwrap_or(0.5),
+        );
 
         let arm = switch_position(
             mapped_button_value(snapshot, Button::RightTrigger2, "RightTrigger2").unwrap_or(0.0),
@@ -70,14 +68,16 @@ impl PocketSnapshot {
 
         let mut channels_us = [1_500; POCKET_CHANNEL_COUNT];
 
+        channels_us[2] = 988;
+
         for control in &controls {
             channels_us[control.channel - 1] = control.pulse_us;
         }
 
-        Some(Self {
+        Self {
             controls,
             channels_us,
-        })
+        }
     }
 }
 

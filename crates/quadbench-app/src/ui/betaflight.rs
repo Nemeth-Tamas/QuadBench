@@ -256,6 +256,15 @@ fn show_streams(ui: &mut egui::Ui, snapshot: &SitlSnapshot) {
 
     ui.add_space(8.0);
 
+    match snapshot.last_rc_packet_age {
+        Some(age) => {
+            ui.label(format!("Last RC packet sent: {} ms ago", age.as_millis(),));
+        }
+        None => {
+            ui.label("No RC packet has been sent yet.");
+        }
+    }
+
     match snapshot.last_motor_packet_age {
         Some(age) => {
             ui.label(format!("Last motor packet: {} ms ago", age.as_millis(),));

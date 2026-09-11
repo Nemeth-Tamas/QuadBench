@@ -118,7 +118,7 @@ impl QuadBenchApp {
         self.pocket_snapshot = self
             .controller_snapshot
             .as_ref()
-            .and_then(PocketSnapshot::from_controller);
+            .map(PocketSnapshot::from_controller);
 
         if let Some(pocket) = self.pocket_snapshot.as_ref() {
             self.state.receiver.connected = true;

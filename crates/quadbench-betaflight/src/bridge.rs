@@ -52,6 +52,7 @@ pub struct SitlSnapshot {
     pub tx_rc_packets: u64,
     pub rx_motor_packets: u64,
     pub motor_commands: [f32; MOTOR_COUNT],
+    pub last_rc_packet_age: Option<Duration>,
     pub last_motor_packet_age: Option<Duration>,
     pub last_error: Option<String>,
 }
@@ -76,6 +77,7 @@ struct BridgeTelemetry {
     tx_rc_packets: u64,
     rx_motor_packets: u64,
     motor_commands: [f32; MOTOR_COUNT],
+    last_rc_packet: Option<Instant>,
     last_motor_packet: Option<Instant>,
     last_error: Option<String>,
 }
@@ -110,6 +112,7 @@ impl SitlBridge {
             tx_rc_packets: 0,
             rx_motor_packets: 0,
             motor_commands: [0.0; MOTOR_COUNT],
+            last_rc_packet: None,
             last_motor_packet: None,
             last_error: None,
         }));
@@ -198,6 +201,7 @@ impl SitlBridge {
             tx_rc_packets: telemetry.tx_rc_packets,
             rx_motor_packets: telemetry.rx_motor_packets,
             motor_commands: telemetry.motor_commands,
+            last_rc_packet_age: telemetry.last_rc_packet.map(|instant| instant.elapsed()),
             last_motor_packet_age: telemetry.last_motor_packet.map(|instant| instant.elapsed()),
             last_error: telemetry.last_error.clone(),
         }
@@ -284,6 +288,7 @@ fn run_worker(
                         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
                     telemetry.tx_rc_packets += 1;
+                    telemetry.last_rc_packet = Some(Instant::now());
                 }
                 Err(error) => {
                     record_error(&telemetry, format!("RC send failed: {error}"));
