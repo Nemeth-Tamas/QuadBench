@@ -142,12 +142,12 @@ fn show_configurator_proxy(
         ));
 
         ui.label(format!(
-            "Configurator → SITL: {} bytes",
+            "Configurator -> SITL: {} bytes",
             snapshot.bytes_from_configurator,
         ));
 
         ui.label(format!(
-            "SITL → Configurator: {} bytes",
+            "SITL -> Configurator: {} bytes",
             snapshot.bytes_from_sitl,
         ));
 

@@ -29,7 +29,7 @@ impl PocketSnapshot {
     pub fn from_controller(snapshot: &ControllerSnapshot) -> Self {
         let roll = snapshot.axis_value(Axis::LeftStickX).unwrap_or(0.0);
 
-        let pitch = snapshot.axis_value(Axis::LeftStickY).unwrap_or(0.0);
+        let pitch = -snapshot.axis_value(Axis::LeftStickY).unwrap_or(0.0);
 
         let throttle = snapshot.axis_value(Axis::RightStickX).unwrap_or(-1.0);
 
@@ -45,7 +45,7 @@ impl PocketSnapshot {
             mapped_button_value(snapshot, Button::RightTrigger, "RightTrigger").unwrap_or(0.0),
         );
 
-        let sb = snap_three_position(snapshot.axis_value(Axis::RightStickY).unwrap_or(-1.0));
+        let sb = snap_three_position(-snapshot.axis_value(Axis::RightStickY).unwrap_or(1.0));
 
         let sc = switch_position(
             mapped_button_value(snapshot, Button::LeftTrigger, "LeftTrigger").unwrap_or(0.0),
@@ -55,15 +55,15 @@ impl PocketSnapshot {
             switch_position(mapped_button_value(snapshot, Button::West, "West").unwrap_or(0.0));
 
         let controls = vec![
-            control("Roll", "Right stick L/R → LeftStickX", 1, roll),
-            control("Pitch", "Right stick U/D → LeftStickY", 2, pitch),
-            control("Throttle", "Left stick U/D → RightStickX", 3, throttle),
-            control("Yaw", "Left stick L/R → LeftTrigger2", 4, yaw),
-            control("Arm / SD", "SD → RightTrigger2", 5, arm),
-            control("SA", "SA → RightTrigger", 6, sa),
-            control("SB", "SB → RightStickY", 7, sb),
-            control("SC", "SC → LeftTrigger", 8, sc),
-            control("SE", "SE → West", 9, se),
+            control("Roll", "Right stick L/R -> LeftStickX", 1, roll),
+            control("Pitch", "Right stick U/D -> LeftStickY", 2, pitch),
+            control("Throttle", "Left stick U/D -> RightStickX", 3, throttle),
+            control("Yaw", "Left stick L/R -> LeftTrigger2", 4, yaw),
+            control("Arm / SD", "SD -> RightTrigger2", 5, arm),
+            control("SA", "SA -> RightTrigger", 6, sa),
+            control("SB", "SB -> RightStickY", 7, sb),
+            control("SC", "SC -> LeftTrigger", 8, sc),
+            control("SE", "SE -> West", 9, se),
         ];
 
         let mut channels_us = [1_500; POCKET_CHANNEL_COUNT];

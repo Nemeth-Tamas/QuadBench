@@ -114,13 +114,13 @@ fault status
 * [x] Implement SITL transport abstraction
 * [x] Receive Betaflight motor outputs
 * [x] Send simulated vehicle/sensor state
-* [ ] Send basic RC channel input
+* [x] Send basic RC channel input
 * [x] Detect SITL disconnect
 * [x] Support reconnect without restarting QuadBench
 * [x] Show SITL connection state in GUI
 * [ ] Log raw SITL packet activity in debug mode
 * [ ] Validate motor ordering against Betaflight
-* [ ] Validate channel ordering against Betaflight
+* [x] Validate channel ordering against Betaflight
 
 Milestone:
 
@@ -169,11 +169,11 @@ AUX2      2000
 
 ## Phase 5 — Basic Receiver Simulation
 
-* [ ] Convert Pocket HID state into virtual receiver state
-* [ ] Implement simple SITL RC input first
-* [ ] Support at least 16 receiver channels internally
+* [x] Convert Pocket HID state into virtual receiver state
+* [x] Implement simple SITL RC input first
+* [x] Support at least 16 receiver channels internally
 * [ ] Add configurable channel rate
-* [ ] Add receiver connected/disconnected state
+* [x] Add receiver connected/disconnected state
 * [ ] Add simulated RSSI
 * [ ] Add simulated LQ
 * [ ] Add packet-loss percentage
@@ -580,12 +580,12 @@ Do not attempt the full hardware emulation immediately.
 
 Version `0.1.0` should achieve:
 
-* [ ] QuadBench GUI launches
-* [ ] RadioMaster Pocket is detected
-* [ ] Stick/channel values appear live
-* [ ] Betaflight SITL connects
-* [ ] Pocket input reaches Betaflight
-* [ ] Betaflight motor outputs return to QuadBench
+* [x] QuadBench GUI launches
+* [x] RadioMaster Pocket is detected
+* [x] Stick/channel values appear live
+* [x] Betaflight SITL connects
+* [x] Pocket input reaches Betaflight
+* [x] Betaflight motor outputs return to QuadBench
 * [ ] Four motor bars move live
 * [ ] Basic battery voltage is displayed
 * [ ] Basic GPS state is displayed
