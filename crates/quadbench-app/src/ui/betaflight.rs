@@ -49,9 +49,9 @@ pub fn show(
         ui.strong("Current simulator plant");
 
         ui.label(
-            "QuadBench currently sends a stationary \
-             level IMU/GPS state. Real flight physics \
-             comes after the transport is proven.",
+            "QuadBench now streams live virtual attitude, \
+             gyro, accelerometer, position and velocity state. \
+             Motor-driven flight physics comes next.",
         );
 
         ui.label(

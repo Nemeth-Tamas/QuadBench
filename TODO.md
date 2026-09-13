@@ -282,10 +282,10 @@ This feedback loop must operate correctly.
 
 ## Phase 9 — Virtual IMU
 
-* [ ] Generate gyro X/Y/Z
-* [ ] Generate accelerometer X/Y/Z
-* [ ] Generate attitude
-* [ ] Feed IMU data into Betaflight SITL
+* [x] Generate gyro X/Y/Z
+* [x] Generate accelerometer X/Y/Z
+* [x] Generate attitude
+* [x] Feed IMU data into Betaflight SITL
 * [ ] Add configurable sensor noise
 * [ ] Add configurable gyro bias
 * [ ] Add vibration simulation
@@ -582,48 +582,29 @@ Stretch goal: turn the closed-loop SITL simulator into a small flyable FPV test 
 * [ ] Add FPV camera view
 * [ ] Add ground plane and collision
 * [ ] Add configurable practice area
-* [ ] Add gates / simple course objects
+* [ ] Add gates and simple course objects
 * [ ] Add reset / respawn
 * [ ] Model quad mass and rotational inertia
 * [ ] Model motor and prop thrust curves
-* [ ] Model motor spool-up / spool-down response
+* [ ] Model motor spool-up and spool-down response
 * [ ] Model aerodynamic drag
 * [ ] Model propwash disturbance
 * [ ] Model gyro noise and filtering effects
-* [ ] Model motor / frame vibration
+* [ ] Model motor and frame vibration
 * [ ] Model battery voltage sag affecting thrust
 * [ ] Make Betaflight PID changes observable in flight
 * [ ] Make Betaflight filter changes observable in flight
-* [ ] Add tuning test manoeuvres
 * [ ] Add commanded-vs-actual rate graphs
-* [ ] Add overshoot / settling-time measurements
-* [ ] Add bounce-back measurement
-* [ ] Add tuning comparison runs
+* [ ] Measure overshoot and settling time
+* [ ] Measure bounce-back
+* [ ] Add repeatable tuning test manoeuvres
 * [ ] Save and compare tuning profiles
-* [ ] Record / replay identical stick inputs for A/B tuning tests
+* [ ] Record and replay identical stick inputs for A/B tuning tests
 * [ ] Integrate Blackbox data where practical
 
-Goal:
+The Flight Lab must use real Betaflight SITL motor output and the normal QuadBench physics feedback loop. It should not fake the effect of PID or filter changes.
 
-```text
-Radio / replayed controls
-        |
-        v
-Real Betaflight SITL
-        |
-        v
-motor commands
-        |
-        v
-QuadBench flight physics
-        |
-        +----> 3D / FPV visualization
-        |
-        v
-virtual gyro + accelerometer
-        |
-        v
-Real Betaflight PID loop
+---
 
 # First Working Milestone
 
