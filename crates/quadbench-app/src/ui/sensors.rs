@@ -119,6 +119,10 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
             physics.reset_attitude();
         }
 
+        if ui.button("Respawn origin").clicked() {
+            physics.reset_translation();
+        }
+
         if ui.button("Reset all physics").clicked() {
             physics.reset_all();
         }
@@ -237,6 +241,15 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
 
             ui.end_row();
 
+            ui.label("World thrust");
+
+            ui.label(format!(
+                "E {:+.2}  N {:+.2}  U {:+.2} N",
+                snapshot.world_thrust_n[0], snapshot.world_thrust_n[1], snapshot.world_thrust_n[2],
+            ));
+
+            ui.end_row();
+
             ui.label("Vertical thrust");
 
             ui.label(format!("{:.2} N", snapshot.vertical_thrust_n,));
@@ -252,6 +265,24 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
             ui.label("Altitude");
 
             ui.label(format!("{:.3} m", snapshot.position_enu_m[2],));
+
+            ui.end_row();
+
+            ui.label("Ground distance");
+
+            ui.label(format!("{:.3} m", snapshot.ground_distance_m(),));
+
+            ui.end_row();
+
+            ui.label("Horizontal speed");
+
+            ui.label(format!("{:.3} m/s", snapshot.horizontal_speed_mps(),));
+
+            ui.end_row();
+
+            ui.label("Total speed");
+
+            ui.label(format!("{:.3} m/s", snapshot.total_speed_mps(),));
 
             ui.end_row();
 
@@ -392,10 +423,10 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     ui.add_space(14.0);
 
     ui.label(
-        "Motor commands now produce physical thrust \
-         in Newtons, body torque through the quad \
-         geometry, angular acceleration through \
-         rotational inertia, and vertical motion \
-         against gravity with a ground plane.",
+        "Motor thrust is now rotated through the \
+         live aircraft attitude into world-space \
+         East / North / Up forces. The quad has full \
+         3D position and velocity, gravity, drag and \
+         a simple sticky ground plane.",
     );
 }

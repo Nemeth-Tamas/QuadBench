@@ -17,6 +17,8 @@ pub struct QuadParameters {
     pub inertia_kg_m2: [f64; 3],
     pub max_motor_thrust_n: f64,
     pub yaw_torque_per_thrust_m: f64,
+    pub horizontal_drag_per_s: f64,
+    pub vertical_drag_per_s: f64,
 }
 
 impl Default for QuadParameters {
@@ -27,6 +29,8 @@ impl Default for QuadParameters {
             inertia_kg_m2: [0.0050, 0.0050, 0.0090],
             max_motor_thrust_n: 22.0,
             yaw_torque_per_thrust_m: 0.015,
+            horizontal_drag_per_s: 0.35,
+            vertical_drag_per_s: 0.15,
         }
     }
 }
@@ -44,6 +48,7 @@ pub struct PhysicsSnapshot {
     pub motor_mix: [f64; 3],
     pub motor_thrust_n: [f64; 4],
     pub total_thrust_n: f64,
+    pub world_thrust_n: [f64; 3],
     pub vertical_thrust_n: f64,
     pub body_torque_nm: [f64; 3],
     pub on_ground: bool,
@@ -87,6 +92,20 @@ impl PhysicsSnapshot {
             .sqrt()
             .clamp(0.0, 1.0)
     }
+
+    pub fn horizontal_speed_mps(self) -> f64 {
+        self.velocity_enu_mps[0].hypot(self.velocity_enu_mps[1])
+    }
+
+    pub fn ground_distance_m(self) -> f64 {
+        self.position_enu_m[0].hypot(self.position_enu_m[1])
+    }
+
+    pub fn total_speed_mps(self) -> f64 {
+        self.velocity_enu_mps[0]
+            .hypot(self.velocity_enu_mps[1])
+            .hypot(self.velocity_enu_mps[2])
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +121,7 @@ pub struct PhysicsModel {
     motor_mix: [f64; 3],
     motor_thrust_n: [f64; 4],
     total_thrust_n: f64,
+    world_thrust_n: [f64; 3],
     vertical_thrust_n: f64,
     body_torque_nm: [f64; 3],
     on_ground: bool,
@@ -121,6 +141,7 @@ impl Default for PhysicsModel {
             motor_mix: [0.0; 3],
             motor_thrust_n: [0.0; 4],
             total_thrust_n: 0.0,
+            world_thrust_n: [0.0; 3],
             vertical_thrust_n: 0.0,
             body_torque_nm: [0.0; 3],
             on_ground: true,
@@ -142,6 +163,7 @@ impl PhysicsModel {
             motor_mix: self.motor_mix,
             motor_thrust_n: self.motor_thrust_n,
             total_thrust_n: self.total_thrust_n,
+            world_thrust_n: self.world_thrust_n,
             vertical_thrust_n: self.vertical_thrust_n,
             body_torque_nm: self.body_torque_nm,
             on_ground: self.on_ground,
@@ -240,22 +262,41 @@ impl PhysicsModel {
     }
 
     fn update_linear_dynamics(&mut self, dt_seconds: f64) {
-        let vertical_factor = self.attitude_rad[0].cos() * self.attitude_rad[1].cos();
+        let thrust_direction = thrust_direction_enu(self.attitude_rad);
 
-        self.vertical_thrust_n = self.total_thrust_n * vertical_factor.max(0.0);
+        self.world_thrust_n = [
+            thrust_direction[0] * self.total_thrust_n,
+            thrust_direction[1] * self.total_thrust_n,
+            thrust_direction[2] * self.total_thrust_n,
+        ];
+
+        self.vertical_thrust_n = self.world_thrust_n[2];
 
         let mass_kg = self.parameters.mass_kg.max(f64::EPSILON);
 
-        let free_vertical_accel = self.vertical_thrust_n / mass_kg - GRAVITY_MPS2;
+        self.linear_acceleration_enu_mps2 = [
+            self.world_thrust_n[0] / mass_kg,
+            self.world_thrust_n[1] / mass_kg,
+            self.world_thrust_n[2] / mass_kg - GRAVITY_MPS2,
+        ];
+
+        self.linear_acceleration_enu_mps2[0] -=
+            self.velocity_enu_mps[0] * self.parameters.horizontal_drag_per_s;
+
+        self.linear_acceleration_enu_mps2[1] -=
+            self.velocity_enu_mps[1] * self.parameters.horizontal_drag_per_s;
+
+        self.linear_acceleration_enu_mps2[2] -=
+            self.velocity_enu_mps[2] * self.parameters.vertical_drag_per_s;
 
         let resting_on_ground = self.position_enu_m[2] <= 0.0
             && self.velocity_enu_mps[2] <= 0.0
-            && free_vertical_accel <= 0.0;
+            && self.linear_acceleration_enu_mps2[2] <= 0.0;
 
         if resting_on_ground {
             self.position_enu_m[2] = 0.0;
 
-            self.velocity_enu_mps[2] = 0.0;
+            self.velocity_enu_mps = [0.0; 3];
 
             self.linear_acceleration_enu_mps2 = [0.0; 3];
 
@@ -264,20 +305,18 @@ impl PhysicsModel {
             return;
         }
 
-        self.linear_acceleration_enu_mps2 = [0.0, 0.0, free_vertical_accel];
+        for axis in 0..3 {
+            self.velocity_enu_mps[axis] += self.linear_acceleration_enu_mps2[axis] * dt_seconds;
 
-        self.velocity_enu_mps[2] += free_vertical_accel * dt_seconds;
-
-        self.position_enu_m[2] += self.velocity_enu_mps[2] * dt_seconds;
+            self.position_enu_m[axis] += self.velocity_enu_mps[axis] * dt_seconds;
+        }
 
         if self.position_enu_m[2] <= 0.0 {
             self.position_enu_m[2] = 0.0;
 
-            if self.velocity_enu_mps[2] < 0.0 {
-                self.velocity_enu_mps[2] = 0.0;
-            }
+            self.velocity_enu_mps = [0.0; 3];
 
-            self.linear_acceleration_enu_mps2[2] = 0.0;
+            self.linear_acceleration_enu_mps2 = [0.0; 3];
 
             self.on_ground = true;
         } else {
@@ -304,9 +343,38 @@ impl PhysicsModel {
         self.angular_velocity_rad_s = [0.0; 3];
     }
 
+    pub fn reset_translation(&mut self) {
+        self.linear_acceleration_enu_mps2 = [0.0; 3];
+
+        self.velocity_enu_mps = [0.0; 3];
+
+        self.position_enu_m = [0.0; 3];
+
+        self.on_ground = true;
+    }
+
     pub fn reset_all(&mut self) {
         *self = Self::default();
     }
+}
+
+fn thrust_direction_enu(attitude_rad: [f64; 3]) -> [f64; 3] {
+    let [roll, pitch, yaw] = attitude_rad;
+
+    let sin_roll = roll.sin();
+    let cos_roll = roll.cos();
+
+    let sin_pitch = pitch.sin();
+    let cos_pitch = pitch.cos();
+
+    let sin_yaw = yaw.sin();
+    let cos_yaw = yaw.cos();
+
+    [
+        cos_yaw * sin_roll + sin_yaw * sin_pitch * cos_roll,
+        -sin_yaw * sin_roll + cos_yaw * sin_pitch * cos_roll,
+        cos_pitch * cos_roll,
+    ]
 }
 
 fn wrap_angle(mut angle: f64) -> f64 {
@@ -443,5 +511,50 @@ mod tests {
         assert!(snapshot.velocity_enu_mps[2] > 0.0);
 
         assert!(!snapshot.on_ground);
+    }
+
+    #[test]
+    fn positive_roll_accelerates_east() {
+        let mut model = PhysicsModel::default();
+
+        model.set_attitude_deg(20.0, 0.0, 0.0);
+
+        model.set_motor_commands([0.50; 4]);
+
+        model.step(0.01);
+
+        let snapshot = model.snapshot();
+
+        assert!(snapshot.linear_acceleration_enu_mps2[0] > 0.0);
+    }
+
+    #[test]
+    fn positive_pitch_accelerates_north() {
+        let mut model = PhysicsModel::default();
+
+        model.set_attitude_deg(0.0, 20.0, 0.0);
+
+        model.set_motor_commands([0.50; 4]);
+
+        model.step(0.01);
+
+        let snapshot = model.snapshot();
+
+        assert!(snapshot.linear_acceleration_enu_mps2[1] > 0.0);
+    }
+
+    #[test]
+    fn yaw_rotates_roll_thrust_direction() {
+        let mut model = PhysicsModel::default();
+
+        model.set_attitude_deg(20.0, 0.0, 90.0);
+
+        model.set_motor_commands([0.50; 4]);
+
+        model.step(0.01);
+
+        let snapshot = model.snapshot();
+
+        assert!(snapshot.linear_acceleration_enu_mps2[1] < 0.0);
     }
 }

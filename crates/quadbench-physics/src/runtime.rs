@@ -129,6 +129,10 @@ impl PhysicsRuntime {
         self.handle.reset_attitude();
     }
 
+    pub fn reset_translation(&self) {
+        self.handle.reset_translation();
+    }
+
     pub fn reset_all(&self) {
         self.handle.reset_all();
     }
@@ -194,6 +198,14 @@ impl PhysicsHandle {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .reset_attitude();
+    }
+
+    pub fn reset_translation(&self) {
+        self.shared
+            .model
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .reset_translation();
     }
 
     pub fn reset_all(&self) {
