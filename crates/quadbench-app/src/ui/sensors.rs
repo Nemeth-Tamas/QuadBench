@@ -206,6 +206,24 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
 
             ui.end_row();
 
+            ui.label("Motor spool up");
+
+            ui.label(format!(
+                "{:.0} ms",
+                snapshot.parameters.motor_spool_up_s * 1_000.0,
+            ));
+
+            ui.end_row();
+
+            ui.label("Motor spool down");
+
+            ui.label(format!(
+                "{:.0} ms",
+                snapshot.parameters.motor_spool_down_s * 1_000.0,
+            ));
+
+            ui.end_row();
+
             ui.label("Calculated hover");
 
             ui.label(format!(
@@ -349,13 +367,14 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     let acceleration = snapshot.angular_acceleration_deg_s2();
 
     egui::Grid::new("sensor_motor_grid")
-        .num_columns(4)
+        .num_columns(5)
         .spacing([16.0, 6.0])
         .striped(true)
         .show(ui, |ui| {
             ui.strong("Motor");
             ui.strong("Position");
-            ui.strong("Command");
+            ui.strong("Target");
+            ui.strong("Actual");
             ui.strong("Thrust");
             ui.end_row();
 
@@ -368,6 +387,8 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
                 ui.label(position);
 
                 ui.label(format!("{:.1}%", snapshot.motor_commands[index] * 100.0,));
+
+                ui.label(format!("{:.1}%", snapshot.motor_actual[index] * 100.0,));
 
                 ui.label(format!("{:.2} N", snapshot.motor_thrust_n[index],));
 
@@ -423,10 +444,9 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     ui.add_space(14.0);
 
     ui.label(
-        "Motor thrust is now rotated through the \
-         live aircraft attitude into world-space \
-         East / North / Up forces. The quad has full \
-         3D position and velocity, gravity, drag and \
-         a simple sticky ground plane.",
+        "Attitude is now integrated as a normalized \
+         body-to-NWU quaternion, while motor commands \
+         pass through finite spool-up / spool-down \
+         dynamics before producing thrust and torque.",
     );
 }

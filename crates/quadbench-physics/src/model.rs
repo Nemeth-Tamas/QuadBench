@@ -1,8 +1,8 @@
-use std::f64::consts::{FRAC_1_SQRT_2, PI};
+use std::f64::consts::FRAC_1_SQRT_2;
+
+use crate::orientation::Orientation;
 
 const GRAVITY_MPS2: f64 = 9.80665;
-
-const MAX_TILT_RAD: f64 = 75.0_f64.to_radians();
 
 const ANGULAR_DAMPING_PER_SECOND: f64 = 1.6;
 
@@ -17,6 +17,8 @@ pub struct QuadParameters {
     pub inertia_kg_m2: [f64; 3],
     pub max_motor_thrust_n: f64,
     pub yaw_torque_per_thrust_m: f64,
+    pub motor_spool_up_s: f64,
+    pub motor_spool_down_s: f64,
     pub horizontal_drag_per_s: f64,
     pub vertical_drag_per_s: f64,
 }
@@ -29,6 +31,8 @@ impl Default for QuadParameters {
             inertia_kg_m2: [0.0050, 0.0050, 0.0090],
             max_motor_thrust_n: 22.0,
             yaw_torque_per_thrust_m: 0.015,
+            motor_spool_up_s: 0.030,
+            motor_spool_down_s: 0.045,
             horizontal_drag_per_s: 0.35,
             vertical_drag_per_s: 0.15,
         }
@@ -38,6 +42,7 @@ impl Default for QuadParameters {
 #[derive(Debug, Clone, Copy)]
 pub struct PhysicsSnapshot {
     pub parameters: QuadParameters,
+    pub orientation_quat_nwu: [f64; 4],
     pub attitude_rad: [f64; 3],
     pub angular_velocity_rad_s: [f64; 3],
     pub angular_acceleration_rad_s2: [f64; 3],
@@ -45,6 +50,7 @@ pub struct PhysicsSnapshot {
     pub velocity_enu_mps: [f64; 3],
     pub position_enu_m: [f64; 3],
     pub motor_commands: [f32; 4],
+    pub motor_actual: [f64; 4],
     pub motor_mix: [f64; 3],
     pub motor_thrust_n: [f64; 4],
     pub total_thrust_n: f64,
@@ -111,6 +117,7 @@ impl PhysicsSnapshot {
 #[derive(Debug, Clone)]
 pub struct PhysicsModel {
     parameters: QuadParameters,
+    orientation: Orientation,
     attitude_rad: [f64; 3],
     angular_velocity_rad_s: [f64; 3],
     angular_acceleration_rad_s2: [f64; 3],
@@ -118,6 +125,7 @@ pub struct PhysicsModel {
     velocity_enu_mps: [f64; 3],
     position_enu_m: [f64; 3],
     motor_commands: [f32; 4],
+    motor_actual: [f64; 4],
     motor_mix: [f64; 3],
     motor_thrust_n: [f64; 4],
     total_thrust_n: f64,
@@ -131,6 +139,7 @@ impl Default for PhysicsModel {
     fn default() -> Self {
         Self {
             parameters: QuadParameters::default(),
+            orientation: Orientation::default(),
             attitude_rad: [0.0; 3],
             angular_velocity_rad_s: [0.0; 3],
             angular_acceleration_rad_s2: [0.0; 3],
@@ -138,6 +147,7 @@ impl Default for PhysicsModel {
             velocity_enu_mps: [0.0; 3],
             position_enu_m: [0.0; 3],
             motor_commands: [0.0; 4],
+            motor_actual: [0.0; 4],
             motor_mix: [0.0; 3],
             motor_thrust_n: [0.0; 4],
             total_thrust_n: 0.0,
@@ -153,6 +163,7 @@ impl PhysicsModel {
     pub fn snapshot(&self) -> PhysicsSnapshot {
         PhysicsSnapshot {
             parameters: self.parameters,
+            orientation_quat_nwu: self.orientation.quat_nwu(),
             attitude_rad: self.attitude_rad,
             angular_velocity_rad_s: self.angular_velocity_rad_s,
             angular_acceleration_rad_s2: self.angular_acceleration_rad_s2,
@@ -160,6 +171,7 @@ impl PhysicsModel {
             velocity_enu_mps: self.velocity_enu_mps,
             position_enu_m: self.position_enu_m,
             motor_commands: self.motor_commands,
+            motor_actual: self.motor_actual,
             motor_mix: self.motor_mix,
             motor_thrust_n: self.motor_thrust_n,
             total_thrust_n: self.total_thrust_n,
@@ -177,7 +189,7 @@ impl PhysicsModel {
             return;
         }
 
-        self.update_motor_dynamics();
+        self.update_motor_dynamics(dt_seconds);
 
         let damping = (-ANGULAR_DAMPING_PER_SECOND * dt_seconds).exp();
 
@@ -195,15 +207,12 @@ impl PhysicsModel {
             {
                 self.angular_velocity_rad_s[axis] = 0.0;
             }
-
-            self.attitude_rad[axis] += self.angular_velocity_rad_s[axis] * dt_seconds;
         }
 
-        self.attitude_rad[0] = self.attitude_rad[0].clamp(-MAX_TILT_RAD, MAX_TILT_RAD);
+        self.orientation
+            .integrate_body_rates(self.angular_velocity_rad_s, dt_seconds);
 
-        self.attitude_rad[1] = self.attitude_rad[1].clamp(-MAX_TILT_RAD, MAX_TILT_RAD);
-
-        self.attitude_rad[2] = wrap_angle(self.attitude_rad[2]);
+        self.attitude_rad = self.orientation.attitude_rad();
 
         self.update_linear_dynamics(dt_seconds);
     }
@@ -212,12 +221,27 @@ impl PhysicsModel {
         self.motor_commands = motor_commands.map(|command| command.clamp(0.0, 1.0));
     }
 
-    fn update_motor_dynamics(&mut self) {
-        let thrust_fraction = self.motor_commands.map(|command| {
-            let command = f64::from(command);
+    fn update_motor_dynamics(&mut self, dt_seconds: f64) {
+        for index in 0..4 {
+            let target = f64::from(self.motor_commands[index]);
 
-            command * command
-        });
+            let current = self.motor_actual[index];
+
+            let time_constant = if target >= current {
+                self.parameters.motor_spool_up_s
+            } else {
+                self.parameters.motor_spool_down_s
+            }
+            .max(0.000_001);
+
+            let response = 1.0 - (-dt_seconds / time_constant).exp();
+
+            self.motor_actual[index] += (target - current) * response;
+
+            self.motor_actual[index] = self.motor_actual[index].clamp(0.0, 1.0);
+        }
+
+        let thrust_fraction = self.motor_actual.map(|actual| actual * actual);
 
         self.motor_thrust_n =
             thrust_fraction.map(|fraction| fraction * self.parameters.max_motor_thrust_n);
@@ -262,7 +286,7 @@ impl PhysicsModel {
     }
 
     fn update_linear_dynamics(&mut self, dt_seconds: f64) {
-        let thrust_direction = thrust_direction_enu(self.attitude_rad);
+        let thrust_direction = self.orientation.thrust_direction_enu();
 
         self.world_thrust_n = [
             thrust_direction[0] * self.total_thrust_n,
@@ -325,11 +349,13 @@ impl PhysicsModel {
     }
 
     pub fn set_attitude_deg(&mut self, roll_deg: f64, pitch_deg: f64, yaw_deg: f64) {
-        self.attitude_rad = [
-            roll_deg.to_radians().clamp(-MAX_TILT_RAD, MAX_TILT_RAD),
-            pitch_deg.to_radians().clamp(-MAX_TILT_RAD, MAX_TILT_RAD),
-            wrap_angle(yaw_deg.to_radians()),
-        ];
+        self.orientation = Orientation::from_attitude_rad([
+            roll_deg.to_radians(),
+            pitch_deg.to_radians(),
+            yaw_deg.to_radians(),
+        ]);
+
+        self.attitude_rad = self.orientation.attitude_rad();
     }
 
     pub fn add_angular_velocity_deg_s(&mut self, delta_deg_s: [f64; 3]) {
@@ -339,8 +365,13 @@ impl PhysicsModel {
     }
 
     pub fn reset_attitude(&mut self) {
+        self.orientation = Orientation::default();
+
         self.attitude_rad = [0.0; 3];
+
         self.angular_velocity_rad_s = [0.0; 3];
+
+        self.angular_acceleration_rad_s2 = [0.0; 3];
     }
 
     pub fn reset_translation(&mut self) {
@@ -358,40 +389,19 @@ impl PhysicsModel {
     }
 }
 
-fn thrust_direction_enu(attitude_rad: [f64; 3]) -> [f64; 3] {
-    let [roll, pitch, yaw] = attitude_rad;
-
-    let sin_roll = roll.sin();
-    let cos_roll = roll.cos();
-
-    let sin_pitch = pitch.sin();
-    let cos_pitch = pitch.cos();
-
-    let sin_yaw = yaw.sin();
-    let cos_yaw = yaw.cos();
-
-    [
-        cos_yaw * sin_roll + sin_yaw * sin_pitch * cos_roll,
-        -sin_yaw * sin_roll + cos_yaw * sin_pitch * cos_roll,
-        cos_pitch * cos_roll,
-    ]
-}
-
-fn wrap_angle(mut angle: f64) -> f64 {
-    while angle > PI {
-        angle -= 2.0 * PI;
-    }
-
-    while angle < -PI {
-        angle += 2.0 * PI;
-    }
-
-    angle
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn step_for(model: &mut PhysicsModel, seconds: f64) {
+        let dt_seconds = 0.002;
+
+        let steps = (seconds / dt_seconds).ceil() as usize;
+
+        for _ in 0..steps {
+            model.step(dt_seconds);
+        }
+    }
 
     #[test]
     fn default_model_is_level() {
@@ -418,6 +428,21 @@ mod tests {
     }
 
     #[test]
+    fn combined_rotation_keeps_valid_quaternion() {
+        let mut model = PhysicsModel::default();
+
+        model.add_angular_velocity_deg_s([500.0, -300.0, 250.0]);
+
+        step_for(&mut model, 2.0);
+
+        let q = model.snapshot().orientation_quat_nwu;
+
+        let norm = (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).sqrt();
+
+        assert!((norm - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn angular_impulse_changes_attitude() {
         let mut model = PhysicsModel::default();
 
@@ -429,12 +454,28 @@ mod tests {
     }
 
     #[test]
+    fn motor_response_is_not_instant() {
+        let mut model = PhysicsModel::default();
+
+        model.set_motor_commands([1.0; 4]);
+
+        model.step(0.002);
+
+        let snapshot = model.snapshot();
+
+        for actual in snapshot.motor_actual {
+            assert!(actual > 0.0);
+            assert!(actual < 1.0);
+        }
+    }
+
+    #[test]
     fn equal_motor_output_has_no_torque() {
         let mut model = PhysicsModel::default();
 
         model.set_motor_commands([0.5; 4]);
 
-        model.step(0.01);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
@@ -447,7 +488,7 @@ mod tests {
 
         model.set_motor_commands([1.0, 0.0, 0.0, 0.0]);
 
-        model.step(0.01);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
@@ -487,7 +528,7 @@ mod tests {
 
         model.set_motor_commands([hover; 4]);
 
-        model.step(0.01);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
@@ -521,7 +562,7 @@ mod tests {
 
         model.set_motor_commands([0.50; 4]);
 
-        model.step(0.01);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
@@ -536,7 +577,7 @@ mod tests {
 
         model.set_motor_commands([0.50; 4]);
 
-        model.step(0.01);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
@@ -551,7 +592,7 @@ mod tests {
 
         model.set_motor_commands([0.50; 4]);
 
-        model.step(0.01);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
