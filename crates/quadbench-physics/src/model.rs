@@ -543,7 +543,7 @@ mod tests {
 
         model.set_motor_commands([hover * 1.20; 4]);
 
-        model.step(0.05);
+        step_for(&mut model, 0.20);
 
         let snapshot = model.snapshot();
 
