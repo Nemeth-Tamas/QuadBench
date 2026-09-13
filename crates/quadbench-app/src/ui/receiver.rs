@@ -25,18 +25,28 @@ pub fn show(
     ui.group(|ui| {
         ui.strong("Virtual receiver");
 
-        let receiver_state = if state.receiver.connected {
+        let receiver_state = if state.receiver.force_rx_loss {
+            "RX loss forced"
+        } else if state.receiver.connected {
             "Connected"
         } else {
-            "Not bridged yet"
+            "Disconnected"
         };
 
         ui.label(format!("Receiver state: {receiver_state}",));
 
+        ui.label(format!(
+            "Failsafe: {}",
+            if state.receiver.failsafe {
+                "ACTIVE"
+            } else {
+                "clear"
+            },
+        ));
+
         ui.label(
-            "USB controller detection is live. \
-             Channel mapping and CRSF bridging \
-             come next.",
+            "Pocket input is translated to AETR + AUX channels \
+             and streamed directly into Betaflight SITL.",
         );
     });
 
@@ -219,6 +229,30 @@ fn show_pocket_mapping(ui: &mut egui::Ui, pocket: Option<&PocketSnapshot>) {
     );
 
     ui.add_space(6.0);
+
+    ui.group(|ui| {
+        ui.strong("Yaw centering");
+
+        ui.label(format!("Raw yaw input: {:.4}", pocket.yaw_raw,));
+
+        ui.label(format!("Learned neutral: {:.4}", pocket.yaw_center_raw,));
+
+        ui.label(format!("Corrected output: {} us", pocket.channels_us[3],));
+
+        if pocket.yaw_calibrating {
+            ui.add(
+                egui::ProgressBar::new(pocket.yaw_calibration_progress.clamp(0.0, 1.0))
+                    .desired_width(260.0)
+                    .text("Learning neutral"),
+            );
+
+            ui.label("Leave the yaw stick released until calibration completes.");
+        } else {
+            ui.label("Neutral learned for this controller connection.");
+        }
+    });
+
+    ui.add_space(8.0);
 
     egui::Grid::new("pocket_mapping_grid")
         .num_columns(5)

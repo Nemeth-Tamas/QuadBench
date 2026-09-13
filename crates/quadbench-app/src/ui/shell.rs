@@ -82,7 +82,7 @@ pub fn show(
 #[allow(clippy::too_many_arguments)]
 fn show_page(
     ui: &mut egui::Ui,
-    state: &QuadState,
+    state: &mut QuadState,
     selected_page: UiPage,
     controller_devices: &[ControllerDevice],
     controller_snapshot: Option<&ControllerSnapshot>,
@@ -109,6 +109,9 @@ fn show_page(
         }
         UiPage::Motors => {
             super::motors::show(ui, state);
+        }
+        UiPage::FaultInjection => {
+            super::fault_injection::show(ui, state);
         }
         UiPage::Betaflight => {
             super::betaflight::show(

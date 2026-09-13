@@ -6,4 +6,4 @@ pub use controller::{
     InputError, RawControlSnapshot,
 };
 
-pub use pocket::{POCKET_CHANNEL_COUNT, PocketControlSnapshot, PocketSnapshot};
+pub use pocket::{POCKET_CHANNEL_COUNT, PocketControlSnapshot, PocketProfile, PocketSnapshot};

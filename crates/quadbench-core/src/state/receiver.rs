@@ -10,6 +10,7 @@ pub struct ReceiverState {
     pub link_quality: u8,
     pub packet_rate_hz: u16,
     pub failsafe: bool,
+    pub force_rx_loss: bool,
 }
 
 impl Default for ReceiverState {
@@ -27,6 +28,7 @@ impl Default for ReceiverState {
             link_quality: 100,
             packet_rate_hz: 250,
             failsafe: false,
+            force_rx_loss: false,
         }
     }
 }

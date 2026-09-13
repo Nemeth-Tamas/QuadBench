@@ -6,7 +6,9 @@ use quadbench_betaflight::{
     SitlSnapshot,
 };
 use quadbench_core::state::{LinkState, QuadState};
-use quadbench_input::{ControllerDevice, ControllerInput, ControllerSnapshot, PocketSnapshot};
+use quadbench_input::{
+    ControllerDevice, ControllerInput, ControllerSnapshot, PocketProfile, PocketSnapshot,
+};
 use tracing::error;
 
 use crate::ui::{self, UiPage};
@@ -17,6 +19,7 @@ pub struct QuadBenchApp {
     controller_input: Option<ControllerInput>,
     controller_devices: Vec<ControllerDevice>,
     controller_snapshot: Option<ControllerSnapshot>,
+    pocket_profile: PocketProfile,
     pocket_snapshot: Option<PocketSnapshot>,
     controller_error: Option<String>,
     sitl_bridge: Option<SitlBridge>,
@@ -79,6 +82,7 @@ impl QuadBenchApp {
             controller_input,
             controller_devices: Vec::new(),
             controller_snapshot: None,
+            pocket_profile: PocketProfile::default(),
             pocket_snapshot: None,
             controller_error,
             sitl_bridge,
@@ -113,22 +117,28 @@ impl QuadBenchApp {
 
         self.controller_devices = input.devices();
 
+        let was_connected = self.controller_snapshot.is_some();
+
         self.controller_snapshot = input.snapshot();
 
-        self.pocket_snapshot = self
-            .controller_snapshot
-            .as_ref()
-            .map(PocketSnapshot::from_controller);
+        let is_connected = self.controller_snapshot.is_some();
 
-        if let Some(pocket) = self.pocket_snapshot.as_ref() {
-            self.state.receiver.connected = true;
-
-            self.state.receiver.channels_us = pocket.channels_us;
-        } else {
-            self.state.receiver.connected = false;
+        if is_connected && !was_connected {
+            self.pocket_profile.reset_yaw_calibration();
         }
 
-        self.state.system.controller_link = if self.controller_snapshot.is_some() {
+        self.pocket_snapshot = match self.controller_snapshot.as_ref() {
+            Some(snapshot) => Some(self.pocket_profile.snapshot(snapshot)),
+            None => None,
+        };
+
+        if let Some(pocket) = self.pocket_snapshot.as_ref() {
+            self.state.receiver.channels_us = pocket.channels_us;
+        }
+
+        self.state.receiver.connected = is_connected;
+
+        self.state.system.controller_link = if is_connected {
             LinkState::Connected
         } else {
             LinkState::Disconnected
@@ -150,7 +160,12 @@ impl QuadBenchApp {
 
         bridge.set_enabled(self.state.system.simulation_running);
 
-        bridge.set_receiver_enabled(self.state.receiver.connected);
+        let receiver_streaming =
+            self.state.receiver.connected && !self.state.receiver.force_rx_loss;
+
+        self.state.receiver.failsafe = self.state.system.simulation_running && !receiver_streaming;
+
+        bridge.set_receiver_enabled(receiver_streaming);
 
         bridge.set_channels(self.state.receiver.channels_us);
 

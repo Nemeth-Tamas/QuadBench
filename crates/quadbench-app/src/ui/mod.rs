@@ -1,5 +1,6 @@
 pub mod betaflight;
 pub mod dashboard;
+pub mod fault_injection;
 pub mod motors;
 pub mod navigation;
 pub mod receiver;
