@@ -1,9 +1,45 @@
 use eframe::egui;
-use quadbench_physics::PhysicsModel;
+use quadbench_physics::PhysicsRuntime;
 
-pub fn show(ui: &mut egui::Ui, physics: &mut PhysicsModel) {
+pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     ui.heading("Virtual IMU / Physics");
     ui.add_space(8.0);
+
+    let runtime = physics.telemetry();
+
+    ui.group(|ui| {
+        ui.strong("Physics worker");
+
+        ui.label(format!(
+            "State: {}",
+            if runtime.enabled { "Running" } else { "Paused" },
+        ));
+
+        ui.label(format!(
+            "Configured rate: {} Hz",
+            runtime.configured_tick_rate_hz,
+        ));
+
+        ui.label(format!(
+            "Measured rate: {:.1} Hz",
+            runtime.measured_tick_rate_hz,
+        ));
+
+        ui.label(format!("Ticks: {}", runtime.tick_count,));
+
+        ui.label(format!("Timing overruns: {}", runtime.overrun_count,));
+
+        match runtime.last_tick_age {
+            Some(age) => {
+                ui.label(format!("Last tick: {} ms ago", age.as_millis(),));
+            }
+            None => {
+                ui.label("No physics tick yet.");
+            }
+        }
+    });
+
+    ui.add_space(14.0);
 
     let snapshot = physics.snapshot();
 
@@ -230,10 +266,10 @@ pub fn show(ui: &mut egui::Ui, physics: &mut PhysicsModel) {
     ui.add_space(14.0);
 
     ui.label(
-        "Betaflight motor output now drives \
-         angular physics and feeds the resulting \
-         attitude and gyro state back into SITL. \
-         Translational thrust and full physical \
-         mass / inertia modelling come next.",
+        "Betaflight motor packets now feed the \
+         fixed-rate physics worker directly, and \
+         the SITL bridge samples that worker directly \
+         for FDM. The GUI is no longer part of the \
+         flight-control timing path.",
     );
 }

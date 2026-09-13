@@ -49,9 +49,10 @@ pub fn show(
         ui.strong("Current simulator plant");
 
         ui.label(
-            "QuadBench now streams live virtual attitude, \
-             gyro, accelerometer, position and velocity state. \
-             Motor-driven flight physics comes next.",
+            "Betaflight motor output now drives the \
+             fixed-rate QuadBench angular plant, and \
+             resulting gyro / attitude state is streamed \
+             directly back into SITL.",
         );
 
         ui.label(

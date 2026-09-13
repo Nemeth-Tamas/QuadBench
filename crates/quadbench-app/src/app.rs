@@ -1,23 +1,22 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use eframe::egui;
 use quadbench_betaflight::{
     ConfiguratorProxy, ConfiguratorProxyConfig, ConfiguratorProxySnapshot, FdmState, SitlBridge,
-    SitlConfig, SitlSnapshot,
+    SitlConfig, SitlHooks, SitlSnapshot,
 };
 use quadbench_core::state::{LinkState, QuadState};
 use quadbench_input::{
     ControllerDevice, ControllerInput, ControllerSnapshot, PocketProfile, PocketSnapshot,
 };
-use quadbench_physics::PhysicsModel;
+use quadbench_physics::{PhysicsRuntime, PhysicsRuntimeConfig};
 use tracing::error;
 
 use crate::ui::{self, UiPage};
 
 pub struct QuadBenchApp {
     state: QuadState,
-    physics: PhysicsModel,
-    last_physics_step: Instant,
+    physics: PhysicsRuntime,
     selected_page: UiPage,
     controller_input: Option<ControllerInput>,
     controller_devices: Vec<ControllerDevice>,
@@ -47,9 +46,33 @@ impl QuadBenchApp {
             }
         };
 
+        let physics = PhysicsRuntime::spawn(PhysicsRuntimeConfig::default())
+            .expect("failed to start physics worker");
+
+        let fdm_physics = physics.handle();
+
+        let motor_physics = physics.handle();
+
+        let sitl_hooks = SitlHooks::default()
+            .with_fdm_state_provider(move || {
+                let physics = fdm_physics.snapshot();
+
+                FdmState::from_body_kinematics(
+                    physics.attitude_rad,
+                    physics.angular_velocity_rad_s,
+                    physics.linear_acceleration_enu_mps2,
+                    physics.velocity_enu_mps,
+                    physics.position_enu_m,
+                )
+            })
+            .with_motor_output_sink(move |motors| {
+                motor_physics.set_motor_commands(motors);
+            });
+
         let sitl_config = SitlConfig::default();
 
-        let (sitl_bridge, sitl_error) = match SitlBridge::spawn(sitl_config) {
+        let (sitl_bridge, sitl_error) = match SitlBridge::spawn_with_hooks(sitl_config, sitl_hooks)
+        {
             Ok(bridge) => (Some(bridge), None),
             Err(error) => {
                 error!(
@@ -81,8 +104,7 @@ impl QuadBenchApp {
 
         let mut app = Self {
             state: QuadState::default(),
-            physics: PhysicsModel::default(),
-            last_physics_step: Instant::now(),
+            physics,
             selected_page: UiPage::Dashboard,
             controller_input,
             controller_devices: Vec::new(),
@@ -150,20 +172,12 @@ impl QuadBenchApp {
         };
     }
 
-    fn step_physics(&mut self) {
-        let now = Instant::now();
-
-        let dt_seconds = now.duration_since(self.last_physics_step).as_secs_f64();
-
-        self.last_physics_step = now;
-
-        if self.state.system.simulation_running {
-            self.physics.step(dt_seconds);
-        }
-    }
-
     fn poll_sitl(&mut self) {
         let Some(bridge) = self.sitl_bridge.as_ref() else {
+            self.physics.set_enabled(false);
+
+            self.physics.set_motor_commands([0.0; 4]);
+
             self.state.system.betaflight_link = LinkState::Faulted;
 
             self.sitl_snapshot = None;
@@ -175,17 +189,10 @@ impl QuadBenchApp {
             return;
         };
 
+        self.physics
+            .set_enabled(self.state.system.simulation_running);
+
         bridge.set_enabled(self.state.system.simulation_running);
-
-        let physics = self.physics.snapshot();
-
-        bridge.set_fdm_state(FdmState::from_body_kinematics(
-            physics.attitude_rad,
-            physics.angular_velocity_rad_s,
-            physics.linear_acceleration_enu_mps2,
-            physics.velocity_enu_mps,
-            physics.position_enu_m,
-        ));
 
         let receiver_streaming =
             self.state.receiver.connected && !self.state.receiver.force_rx_loss;
@@ -211,8 +218,6 @@ impl QuadBenchApp {
         };
 
         if connected {
-            self.physics.set_motor_commands(snapshot.motor_commands);
-
             for (motor, command) in self
                 .state
                 .motors
@@ -243,14 +248,13 @@ impl QuadBenchApp {
 impl eframe::App for QuadBenchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.poll_controller();
-        self.step_physics();
         self.poll_sitl();
         self.poll_configurator_proxy();
 
         ui::shell::show(
             ui,
             &mut self.state,
-            &mut self.physics,
+            &self.physics,
             &mut self.selected_page,
             &self.controller_devices,
             self.controller_snapshot.as_ref(),

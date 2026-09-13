@@ -2,7 +2,7 @@ mod bridge;
 mod protocol;
 mod proxy;
 
-pub use bridge::{SitlBridge, SitlConfig, SitlSnapshot};
+pub use bridge::{SitlBridge, SitlConfig, SitlHooks, SitlSnapshot};
 
 pub use protocol::FdmState;
 

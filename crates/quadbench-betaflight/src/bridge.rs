@@ -25,6 +25,36 @@ pub struct SitlConfig {
     pub rc_rate_hz: u32,
 }
 
+type FdmStateProvider = Arc<dyn Fn() -> FdmState + Send + Sync>;
+
+type MotorOutputSink = Arc<dyn Fn([f32; MOTOR_COUNT]) + Send + Sync>;
+
+#[derive(Clone, Default)]
+pub struct SitlHooks {
+    fdm_state_provider: Option<FdmStateProvider>,
+    motor_output_sink: Option<MotorOutputSink>,
+}
+
+impl SitlHooks {
+    pub fn with_fdm_state_provider<F>(mut self, provider: F) -> Self
+    where
+        F: Fn() -> FdmState + Send + Sync + 'static,
+    {
+        self.fdm_state_provider = Some(Arc::new(provider));
+
+        self
+    }
+
+    pub fn with_motor_output_sink<F>(mut self, sink: F) -> Self
+    where
+        F: Fn([f32; MOTOR_COUNT]) + Send + Sync + 'static,
+    {
+        self.motor_output_sink = Some(Arc::new(sink));
+
+        self
+    }
+}
+
 impl Default for SitlConfig {
     fn default() -> Self {
         let target_host = std::env::var("QUADBENCH_SITL_HOST")
@@ -93,6 +123,10 @@ pub struct SitlBridge {
 
 impl SitlBridge {
     pub fn spawn(config: SitlConfig) -> io::Result<Self> {
+        Self::spawn_with_hooks(config, SitlHooks::default())
+    }
+
+    pub fn spawn_with_hooks(config: SitlConfig, hooks: SitlHooks) -> io::Result<Self> {
         let motor_bind_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.motor_port);
 
@@ -134,6 +168,7 @@ impl SitlBridge {
                     config,
                     motor_socket,
                     tx_socket,
+                    hooks,
                     worker_control,
                     worker_telemetry,
                     worker_stop,
@@ -235,6 +270,7 @@ fn run_worker(
     config: SitlConfig,
     motor_socket: UdpSocket,
     tx_socket: UdpSocket,
+    hooks: SitlHooks,
     control: Arc<Mutex<BridgeControl>>,
     telemetry: Arc<Mutex<BridgeTelemetry>>,
     stop: Arc<AtomicBool>,
@@ -273,6 +309,12 @@ fn run_worker(
 
         if enabled && now >= next_fdm {
             let timestamp = started.elapsed().as_secs_f64();
+
+            let fdm_state = hooks
+                .fdm_state_provider
+                .as_ref()
+                .map(|provider| provider())
+                .unwrap_or(fdm_state);
 
             let packet = FdmPacket::from_state(timestamp, fdm_state).encode();
 
@@ -326,6 +368,10 @@ fn run_worker(
 
                         continue;
                     };
+
+                    if let Some(sink) = hooks.motor_output_sink.as_ref() {
+                        sink(motors);
+                    }
 
                     let mut telemetry = telemetry
                         .lock()
