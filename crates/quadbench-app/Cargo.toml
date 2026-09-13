@@ -15,3 +15,6 @@ quadbench-input = { path = "../quadbench-input" }
 quadbench-physics = { path = "../quadbench-physics" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[build-dependencies]
+embed-manifest = "1.5.0"

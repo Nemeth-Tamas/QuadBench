@@ -170,12 +170,70 @@ pub fn show(ui: &mut egui::Ui, physics: &mut PhysicsModel) {
             ui.end_row();
         });
 
+    ui.add_space(16.0);
+
+    ui.heading("Motor-driven angular plant");
+
+    let acceleration = snapshot.angular_acceleration_deg_s2();
+
+    egui::Grid::new("sensor_motor_grid")
+        .num_columns(3)
+        .spacing([16.0, 6.0])
+        .striped(true)
+        .show(ui, |ui| {
+            ui.strong("Motor");
+            ui.strong("Position");
+            ui.strong("Command");
+            ui.end_row();
+
+            for (index, position) in ["Rear right", "Front right", "Rear left", "Front left"]
+                .into_iter()
+                .enumerate()
+            {
+                ui.label(format!("M{}", index + 1,));
+
+                ui.label(position);
+
+                ui.label(format!("{:.1}%", snapshot.motor_commands[index] * 100.0,));
+
+                ui.end_row();
+            }
+        });
+
+    ui.add_space(8.0);
+
+    egui::Grid::new("sensor_motor_mix_grid")
+        .num_columns(3)
+        .spacing([16.0, 6.0])
+        .striped(true)
+        .show(ui, |ui| {
+            ui.strong("Axis");
+            ui.strong("Mix");
+            ui.strong("Acceleration");
+            ui.end_row();
+
+            for (axis, mix, acceleration) in [
+                ("Roll", snapshot.motor_mix[0], acceleration[0]),
+                ("Pitch", snapshot.motor_mix[1], acceleration[1]),
+                ("Yaw", snapshot.motor_mix[2], acceleration[2]),
+            ] {
+                ui.label(axis);
+
+                ui.label(format!("{mix:+.4}",));
+
+                ui.label(format!("{acceleration:+.1} deg/s2",));
+
+                ui.end_row();
+            }
+        });
+
     ui.add_space(14.0);
 
     ui.label(
-        "Motor-driven torque and translational \
-         flight physics come next. For now this \
-         page gives us a controllable live IMU/FDM \
-         source for validating Betaflight.",
+        "Betaflight motor output now drives \
+         angular physics and feeds the resulting \
+         attitude and gyro state back into SITL. \
+         Translational thrust and full physical \
+         mass / inertia modelling come next.",
     );
 }

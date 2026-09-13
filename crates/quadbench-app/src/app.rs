@@ -211,6 +211,8 @@ impl QuadBenchApp {
         };
 
         if connected {
+            self.physics.set_motor_commands(snapshot.motor_commands);
+
             for (motor, command) in self
                 .state
                 .motors
@@ -220,6 +222,8 @@ impl QuadBenchApp {
                 motor.command = command.clamp(0.0, 1.0);
             }
         } else {
+            self.physics.set_motor_commands([0.0; 4]);
+
             for motor in &mut self.state.motors {
                 motor.command = 0.0;
             }
