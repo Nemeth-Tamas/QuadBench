@@ -168,6 +168,111 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
 
     ui.add_space(16.0);
 
+    ui.heading("Airframe model");
+
+    egui::Grid::new("airframe_model_grid")
+        .num_columns(2)
+        .spacing([16.0, 6.0])
+        .striped(true)
+        .show(ui, |ui| {
+            ui.label("Mass");
+
+            ui.label(format!("{:.3} kg", snapshot.parameters.mass_kg,));
+
+            ui.end_row();
+
+            ui.label("Motor radius");
+
+            ui.label(format!(
+                "{:.0} mm",
+                snapshot.parameters.motor_radius_m * 1_000.0,
+            ));
+
+            ui.end_row();
+
+            ui.label("Max thrust / motor");
+
+            ui.label(format!("{:.2} N", snapshot.parameters.max_motor_thrust_n,));
+
+            ui.end_row();
+
+            ui.label("Weight");
+
+            ui.label(format!("{:.2} N", snapshot.weight_n(),));
+
+            ui.end_row();
+
+            ui.label("Calculated hover");
+
+            ui.label(format!(
+                "{:.1}% motor",
+                snapshot.hover_motor_command() * 100.0,
+            ));
+
+            ui.end_row();
+        });
+
+    ui.add_space(16.0);
+
+    ui.heading("Flight state");
+
+    egui::Grid::new("flight_state_grid")
+        .num_columns(2)
+        .spacing([16.0, 6.0])
+        .striped(true)
+        .show(ui, |ui| {
+            ui.label("Contact");
+
+            ui.label(if snapshot.on_ground {
+                "Ground"
+            } else {
+                "Airborne"
+            });
+
+            ui.end_row();
+
+            ui.label("Total thrust");
+
+            ui.label(format!("{:.2} N", snapshot.total_thrust_n,));
+
+            ui.end_row();
+
+            ui.label("Vertical thrust");
+
+            ui.label(format!("{:.2} N", snapshot.vertical_thrust_n,));
+
+            ui.end_row();
+
+            ui.label("Thrust / weight");
+
+            ui.label(format!("{:.2}:1", snapshot.thrust_to_weight(),));
+
+            ui.end_row();
+
+            ui.label("Altitude");
+
+            ui.label(format!("{:.3} m", snapshot.position_enu_m[2],));
+
+            ui.end_row();
+
+            ui.label("Vertical speed");
+
+            ui.label(format!("{:+.3} m/s", snapshot.velocity_enu_mps[2],));
+
+            ui.end_row();
+
+            ui.label("Vertical acceleration");
+
+            ui.label(format!(
+                "{:+.3} m/s2",
+                snapshot.linear_acceleration_enu_mps2[2],
+            ));
+
+            ui.end_row();
+        });
+
+    ui.add_space(16.0);
+
     ui.heading("Inertial state");
 
     egui::Grid::new("sensor_inertial_grid")
@@ -213,13 +318,14 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     let acceleration = snapshot.angular_acceleration_deg_s2();
 
     egui::Grid::new("sensor_motor_grid")
-        .num_columns(3)
+        .num_columns(4)
         .spacing([16.0, 6.0])
         .striped(true)
         .show(ui, |ui| {
             ui.strong("Motor");
             ui.strong("Position");
             ui.strong("Command");
+            ui.strong("Thrust");
             ui.end_row();
 
             for (index, position) in ["Rear right", "Front right", "Rear left", "Front left"]
@@ -232,6 +338,8 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
 
                 ui.label(format!("{:.1}%", snapshot.motor_commands[index] * 100.0,));
 
+                ui.label(format!("{:.2} N", snapshot.motor_thrust_n[index],));
+
                 ui.end_row();
             }
         });
@@ -239,23 +347,41 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     ui.add_space(8.0);
 
     egui::Grid::new("sensor_motor_mix_grid")
-        .num_columns(3)
+        .num_columns(4)
         .spacing([16.0, 6.0])
         .striped(true)
         .show(ui, |ui| {
             ui.strong("Axis");
             ui.strong("Mix");
+            ui.strong("Torque");
             ui.strong("Acceleration");
             ui.end_row();
 
-            for (axis, mix, acceleration) in [
-                ("Roll", snapshot.motor_mix[0], acceleration[0]),
-                ("Pitch", snapshot.motor_mix[1], acceleration[1]),
-                ("Yaw", snapshot.motor_mix[2], acceleration[2]),
+            for (axis, mix, torque, acceleration) in [
+                (
+                    "Roll",
+                    snapshot.motor_mix[0],
+                    snapshot.body_torque_nm[0],
+                    acceleration[0],
+                ),
+                (
+                    "Pitch",
+                    snapshot.motor_mix[1],
+                    snapshot.body_torque_nm[1],
+                    acceleration[1],
+                ),
+                (
+                    "Yaw",
+                    snapshot.motor_mix[2],
+                    snapshot.body_torque_nm[2],
+                    acceleration[2],
+                ),
             ] {
                 ui.label(axis);
 
                 ui.label(format!("{mix:+.4}",));
+
+                ui.label(format!("{torque:+.4} N*m",));
 
                 ui.label(format!("{acceleration:+.1} deg/s2",));
 
@@ -266,10 +392,10 @@ pub fn show(ui: &mut egui::Ui, physics: &PhysicsRuntime) {
     ui.add_space(14.0);
 
     ui.label(
-        "Betaflight motor packets now feed the \
-         fixed-rate physics worker directly, and \
-         the SITL bridge samples that worker directly \
-         for FDM. The GUI is no longer part of the \
-         flight-control timing path.",
+        "Motor commands now produce physical thrust \
+         in Newtons, body torque through the quad \
+         geometry, angular acceleration through \
+         rotational inertia, and vertical motion \
+         against gravity with a ground plane.",
     );
 }
