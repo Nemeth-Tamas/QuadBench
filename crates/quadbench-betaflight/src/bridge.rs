@@ -12,7 +12,7 @@ use std::{
 use tracing::{debug, info, warn};
 
 use crate::protocol::{
-    FdmPacket, MOTOR_COUNT, RC_CHANNEL_COUNT, decode_motor_packet, encode_rc_packet,
+    FdmPacket, FdmState, MOTOR_COUNT, RC_CHANNEL_COUNT, decode_motor_packet, encode_rc_packet,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -70,6 +70,7 @@ struct BridgeControl {
     enabled: bool,
     receiver_enabled: bool,
     channels: [u16; RC_CHANNEL_COUNT],
+    fdm_state: FdmState,
 }
 
 struct BridgeTelemetry {
@@ -105,6 +106,7 @@ impl SitlBridge {
             enabled: false,
             receiver_enabled: false,
             channels: [1_500; RC_CHANNEL_COUNT],
+            fdm_state: FdmState::default(),
         }));
 
         let telemetry = Arc::new(Mutex::new(BridgeTelemetry {
@@ -182,6 +184,15 @@ impl SitlBridge {
         control.channels = channels;
     }
 
+    pub fn set_fdm_state(&self, fdm_state: FdmState) {
+        let mut control = self
+            .control
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        control.fdm_state = fdm_state;
+    }
+
     pub fn snapshot(&self) -> SitlSnapshot {
         let control = self
             .control
@@ -247,18 +258,23 @@ fn run_worker(
     while !stop.load(Ordering::Acquire) {
         let now = Instant::now();
 
-        let (enabled, receiver_enabled, channels) = {
+        let (enabled, receiver_enabled, channels, fdm_state) = {
             let control = control
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-            (control.enabled, control.receiver_enabled, control.channels)
+            (
+                control.enabled,
+                control.receiver_enabled,
+                control.channels,
+                control.fdm_state,
+            )
         };
 
         if enabled && now >= next_fdm {
             let timestamp = started.elapsed().as_secs_f64();
 
-            let packet = FdmPacket::stationary(timestamp).encode();
+            let packet = FdmPacket::from_state(timestamp, fdm_state).encode();
 
             match tx_socket.send_to(&packet, fdm_target) {
                 Ok(_) => {

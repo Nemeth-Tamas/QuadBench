@@ -1,0 +1,4 @@
+[package]
+name = "quadbench-physics"
+version.workspace = true
+edition.workspace = true

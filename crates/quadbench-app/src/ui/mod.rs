@@ -4,6 +4,7 @@ pub mod fault_injection;
 pub mod motors;
 pub mod navigation;
 pub mod receiver;
+pub mod sensors;
 pub mod shell;
 pub mod status_bar;
 pub mod top_bar;

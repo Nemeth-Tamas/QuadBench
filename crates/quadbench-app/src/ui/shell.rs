@@ -2,6 +2,7 @@ use eframe::egui;
 use quadbench_betaflight::{ConfiguratorProxySnapshot, SitlSnapshot};
 use quadbench_core::state::QuadState;
 use quadbench_input::{ControllerDevice, ControllerSnapshot, PocketSnapshot};
+use quadbench_physics::PhysicsModel;
 
 use super::UiPage;
 
@@ -9,6 +10,7 @@ use super::UiPage;
 pub fn show(
     ui: &mut egui::Ui,
     state: &mut QuadState,
+    physics: &mut PhysicsModel,
     selected_page: &mut UiPage,
     controller_devices: &[ControllerDevice],
     controller_snapshot: Option<&ControllerSnapshot>,
@@ -58,6 +60,7 @@ pub fn show(
                             show_page(
                                 ui,
                                 state,
+                                physics,
                                 *selected_page,
                                 controller_devices,
                                 controller_snapshot,
@@ -83,6 +86,7 @@ pub fn show(
 fn show_page(
     ui: &mut egui::Ui,
     state: &mut QuadState,
+    physics: &mut PhysicsModel,
     selected_page: UiPage,
     controller_devices: &[ControllerDevice],
     controller_snapshot: Option<&ControllerSnapshot>,
@@ -109,6 +113,9 @@ fn show_page(
         }
         UiPage::Motors => {
             super::motors::show(ui, state);
+        }
+        UiPage::Sensors => {
+            super::sensors::show(ui, physics);
         }
         UiPage::FaultInjection => {
             super::fault_injection::show(ui, state);

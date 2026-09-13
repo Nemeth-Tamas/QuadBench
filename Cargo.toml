@@ -4,6 +4,7 @@ members = [
     "crates/quadbench-betaflight",
     "crates/quadbench-core",
     "crates/quadbench-input",
+    "crates/quadbench-physics",
 ]
 resolver = "3"
 

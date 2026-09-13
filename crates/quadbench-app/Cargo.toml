@@ -12,5 +12,6 @@ eframe.workspace = true
 quadbench-betaflight = { path = "../quadbench-betaflight" }
 quadbench-core = { path = "../quadbench-core" }
 quadbench-input = { path = "../quadbench-input" }
+quadbench-physics = { path = "../quadbench-physics" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
