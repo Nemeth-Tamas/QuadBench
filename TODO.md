@@ -572,7 +572,58 @@ The MM profile should eventually allow practicing configuration against a virtua
 * [ ] Optional 3D visualization
 * [ ] Optional advanced physics backend
 
----
+### Flight Lab / Tuning Simulator
+
+Stretch goal: turn the closed-loop SITL simulator into a small flyable FPV test environment where real Betaflight tuning changes produce observable flight behavior.
+
+* [ ] Add flyable free-flight mode
+* [ ] Add simple 3D quad visualization
+* [ ] Add chase-camera view
+* [ ] Add FPV camera view
+* [ ] Add ground plane and collision
+* [ ] Add configurable practice area
+* [ ] Add gates / simple course objects
+* [ ] Add reset / respawn
+* [ ] Model quad mass and rotational inertia
+* [ ] Model motor and prop thrust curves
+* [ ] Model motor spool-up / spool-down response
+* [ ] Model aerodynamic drag
+* [ ] Model propwash disturbance
+* [ ] Model gyro noise and filtering effects
+* [ ] Model motor / frame vibration
+* [ ] Model battery voltage sag affecting thrust
+* [ ] Make Betaflight PID changes observable in flight
+* [ ] Make Betaflight filter changes observable in flight
+* [ ] Add tuning test manoeuvres
+* [ ] Add commanded-vs-actual rate graphs
+* [ ] Add overshoot / settling-time measurements
+* [ ] Add bounce-back measurement
+* [ ] Add tuning comparison runs
+* [ ] Save and compare tuning profiles
+* [ ] Record / replay identical stick inputs for A/B tuning tests
+* [ ] Integrate Blackbox data where practical
+
+Goal:
+
+```text
+Radio / replayed controls
+        |
+        v
+Real Betaflight SITL
+        |
+        v
+motor commands
+        |
+        v
+QuadBench flight physics
+        |
+        +----> 3D / FPV visualization
+        |
+        v
+virtual gyro + accelerometer
+        |
+        v
+Real Betaflight PID loop
 
 # First Working Milestone
 

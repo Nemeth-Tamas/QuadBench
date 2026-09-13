@@ -101,10 +101,6 @@ pub struct FdmPacket {
 }
 
 impl FdmPacket {
-    pub fn stationary(timestamp: f64) -> Self {
-        Self::from_state(timestamp, FdmState::default())
-    }
-
     pub fn from_state(timestamp: f64, state: FdmState) -> Self {
         Self {
             timestamp,
@@ -260,8 +256,8 @@ mod tests {
     }
 
     #[test]
-    fn stationary_fdm_is_exactly_144_bytes() {
-        let packet = FdmPacket::stationary(1.0).encode();
+    fn fdm_packet_is_exactly_144_bytes() {
+        let packet = FdmPacket::from_state(1.0, FdmState::default()).encode();
 
         assert_eq!(packet.len(), FDM_PACKET_SIZE,);
     }

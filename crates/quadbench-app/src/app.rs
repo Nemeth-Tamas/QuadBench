@@ -16,6 +16,8 @@ use crate::ui::{self, UiPage};
 
 pub struct QuadBenchApp {
     state: QuadState,
+    physics: PhysicsModel,
+    last_physics_step: Instant,
     selected_page: UiPage,
     controller_input: Option<ControllerInput>,
     controller_devices: Vec<ControllerDevice>,
