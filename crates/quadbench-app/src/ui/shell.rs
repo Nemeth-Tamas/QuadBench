@@ -10,7 +10,7 @@ use super::UiPage;
 pub fn show(
     ui: &mut egui::Ui,
     state: &mut QuadState,
-    physics: &mut PhysicsModel,
+    physics: &PhysicsRuntime,
     selected_page: &mut UiPage,
     controller_devices: &[ControllerDevice],
     controller_snapshot: Option<&ControllerSnapshot>,
